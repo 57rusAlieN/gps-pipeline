@@ -81,7 +81,7 @@ namespace {
 class AlwaysPassFilter final : public IGpsFilter
 {
 public:
-    FilterResult apply(const GpsPoint&) override
+    FilterResult process(const GpsPoint&) override
     {
         return {FilterStatus::Pass, ""};
     }
@@ -90,7 +90,7 @@ public:
 class AlwaysRejectFilter final : public IGpsFilter
 {
 public:
-    FilterResult apply(const GpsPoint&) override
+    FilterResult process(const GpsPoint&) override
     {
         return {FilterStatus::Reject, "always rejected"};
     }
@@ -102,7 +102,7 @@ TEST(IGpsFilterTest, PassImplementation)
 {
     AlwaysPassFilter f;
     GpsPoint p{};
-    const auto result = f.apply(p);
+    const auto result = f.process(p);
     EXPECT_EQ(result.status, FilterStatus::Pass);
     EXPECT_TRUE(result.reason.empty());
 }
@@ -111,7 +111,7 @@ TEST(IGpsFilterTest, RejectImplementation)
 {
     AlwaysRejectFilter f;
     GpsPoint p{};
-    const auto result = f.apply(p);
+    const auto result = f.process(p);
     EXPECT_EQ(result.status, FilterStatus::Reject);
     EXPECT_EQ(result.reason, "always rejected");
 }
