@@ -13,6 +13,7 @@ FetchContent_MakeAvailable(googletest)
 add_executable(gps_pipeline_tests
     test_placeholder.cpp
     test_types.cpp
+    test_checksum.cpp
 )
 
 target_link_libraries(gps_pipeline_tests
