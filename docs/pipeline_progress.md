@@ -150,11 +150,12 @@ gps-pipeline/
 - [x] `FirLowPassFilter` (КИХ) — windowed-sinc, Частота Найквиста-нормированная, окно Хэмминга
 - [x] Тесты зелёные (83/83)
 
-### Этап 5 — Output (TDD) `[ ]`
-- [ ] `include/output/IOutput.h` — интерфейс
-- [ ] Тест: `test_output.cpp` — форматирование строки для pass/reject/error
-- [ ] `include/output/ConsoleOutput.h` + `src/output/ConsoleOutput.cpp`
-- [ ] Mock-реализация `MockOutput` в `tests/` для изоляции тестов
+### Этап 5 — Output (TDD) `[✅]`
+- [x] `include/output/IOutput.h` — интерфейс (Стаге 1)
+- [x] `tests/test_output.cpp` — 15 тестов (format/stopped/S-W/rejected/error)
+- [x] `include/output/ConsoleOutput.h` + `src/output/ConsoleOutput.cpp`
+- [x] ConsoleOutput пишет в любой std::ostream, формат по ТЗ
+- [x] Тесты зелёные (98/98)
 
 ### Этап 6 — Pipeline (TDD) `[ ]`
 - [ ] Тест: `test_pipeline.cpp` — E2E: подать строки, получить ожидаемый вывод (через MockOutput)
@@ -202,7 +203,7 @@ gps-pipeline/
 | 2 — Checksum       | ✅ Завершён | ab1edb0 |
 | 3 — Парсер NMEA    | ✅ Завершён | fa2e076 |
 | 4 — Фильтры        | ✅ Завершён | edc3636 |
-| 5 — Output         | ⬜ Не начат | — |
+| 5 — Output         | ✅ Завершён | 55021f3 |
 | 6 — Pipeline       | ⬜ Не начат | — |
 | 7 — Main / CLI     | ⬜ Не начат | — |
 | 8 — Тестовые данные| ✅ Завершён | — |

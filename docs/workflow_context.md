@@ -96,7 +96,7 @@ ctest --preset=x64-debug --output-on-failure
 | **2 — Checksum** | ✅ Завершён | ChecksumValidator: compute + validate, 13 тестов |
 | **3 — Parser NMEA** | ✅ Завершён | NmeaParser: RMC+GGA stateful, DDMM→decimal, knots→km/h, 17 тестов |
 | **4 — Filters** | ✅ Завершён | Валидация (Satellite/Speed/Jump/Stop) + FilterChain + ПИФ/КИХ |
-| **5 — Output** | ⬜ Не начат | ConsoleOutput + MockOutput |
+| **5 — Output** | ✅ Завершён | ConsoleOutput: пишет в std::ostream, формат по ТЗ, 15 тестов |
 | **6 — Pipeline** | ⬜ Не начат | оркестратор, DI |
 | **7 — Main/CLI** | ⬜ Не начат | чтение файла, аргументы |
 | **8 — sample.nmea** | ✅ Завершён | создан вместе со Stage 0 |
@@ -137,10 +137,9 @@ ctest --preset=x64-debug --output-on-failure
 
 ## Следующий шаг
 
-**Этап 5 — Output (TDD):**
-- `include/output/ConsoleOutput.h` + `src/output/ConsoleOutput.cpp`
-- `tests/test_output.cpp` — формат строк согласно ТЗ: `[HH:MM:SS]`, Pass/Reject/Error
-- `MockOutput` в `tests/` для изоляции тестов Pipeline
-- Формат writePoint: `[12:00:00] Coordinates: 55.75206°N, 37.65946°E  Speed: 46.3 km/h ...`
-- Формат writeRejected: `[12:00:02] Point rejected: coordinate jump detected`
-- Формат writeError: `[12:00:05] Parse error: invalid checksum`
+**Этап 6 — Pipeline (TDD):**
+- `include/pipeline/Pipeline.h` + `src/pipeline/Pipeline.cpp`
+- DI через конструктор: `Pipeline(INmeaParser&, FilterChain&, IOutput&)`
+- `processLine(const std::string& line)` — оркестрация: parse → filter → output
+- `tests/test_pipeline.cpp` — E2E с MockOutput: 6 сценариев из sample.nmea
+- Pipeline сам проверяет checksum до вызова parser, чтобы различать «reject» и «checksum error»
