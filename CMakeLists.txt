@@ -12,6 +12,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # ---------------------------------------------------------------------------
 add_library(gps_pipeline_lib STATIC
     src/parser/ChecksumValidator.cpp
+    src/parser/NmeaParser.cpp
 )
 
 target_include_directories(gps_pipeline_lib PUBLIC
