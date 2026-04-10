@@ -16,6 +16,7 @@ add_executable(gps_pipeline_tests
     test_checksum.cpp
     test_parser.cpp
     test_filters.cpp
+    test_output.cpp
 )
 
 target_link_libraries(gps_pipeline_tests
