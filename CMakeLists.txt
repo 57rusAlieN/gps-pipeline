@@ -20,6 +20,7 @@ add_library(gps_pipeline_lib STATIC
     src/filter/FilterChain.cpp
     src/filter/MovingAverageFilter.cpp
     src/filter/FirLowPassFilter.cpp
+    src/output/ConsoleOutput.cpp
 )
 
 target_include_directories(gps_pipeline_lib PUBLIC
