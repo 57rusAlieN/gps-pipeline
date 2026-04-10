@@ -134,12 +134,11 @@ gps-pipeline/
 - [x] `include/parser/ChecksumValidator.h` + `src/parser/ChecksumValidator.cpp`
 - [x] Тесты зелёные (23/23)
 
-### Этап 3 — Парсер NMEA (TDD) `[ ]`
-- [ ] Тест: `test_parser.cpp` — RMC: валидный, невалидный fix, отсутствующие поля
-- [ ] Тест: GGA: валидный, нет fix quality, конвертация координат DDMM→decimal
-- [ ] Тест: неизвестный тип сообщения → `std::nullopt`
-- [ ] `include/parser/NmeaParser.h` + `src/parser/NmeaParser.cpp`
-- [ ] Тесты зелёные
+### Этап 3 — Парсер NMEA (TDD) `[✅]`
+- [x] Тест: `tests/test_parser.cpp` — 17 тестов
+- [x] `include/parser/NmeaParser.h` + `src/parser/NmeaParser.cpp`
+- [x] RMC+GGA stateful парсер, конвертация DDMM→decimal, knots→km/h
+- [x] Тесты зелёные (42/42)
 
 ### Этап 4 — Фильтры (TDD) `[ ]`
 - [ ] Тест + реализация `SatelliteFilter` (мин. количество спутников, дефолт 4)
@@ -199,7 +198,7 @@ gps-pipeline/
 | 0 — Scaffolding    | ✅ Завершён | — |
 | 1 — Типы данных    | ✅ Завершён | a74a51b |
 | 2 — Checksum       | ✅ Завершён | ab1edb0 |
-| 3 — Парсер NMEA    | ⬜ Не начат | — |
+| 3 — Парсер NMEA    | ✅ Завершён | fa2e076 |
 | 4 — Фильтры        | ⬜ Не начат | — |
 | 5 — Output         | ⬜ Не начат | — |
 | 6 — Pipeline       | ⬜ Не начат | — |

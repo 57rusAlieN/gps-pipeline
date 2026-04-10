@@ -43,12 +43,14 @@ gps-pipeline/
 ├── src/
 │   ├── main.cpp                    # заглушка (Stage 7)
 │   └── parser/
-│       └── ChecksumValidator.cpp   ✅
+│       ├── ChecksumValidator.cpp   ✅
+│       └── NmeaParser.cpp          ✅
 ├── include/
 │   ├── GpsPoint.h              ✅ struct GpsPoint
 │   ├── parser/
 │   │   ├── INmeaParser.h           ✅ интерфейс парсера
-│   │   └── ChecksumValidator.h     ✅ compute() + validate()
+│   │   ├── ChecksumValidator.h     ✅ compute() + validate()
+│   │   └── NmeaParser.h            ✅ stateful RMC+GGA парсер
 │   ├── filter/
 │   │   └── IGpsFilter.h        ✅ FilterStatus, FilterResult, IGpsFilter
 │   ├── output/
@@ -56,9 +58,10 @@ gps-pipeline/
 │   └── pipeline/               # пусто (Stage 6)
 ├── tests/
 │   ├── CMakeLists.txt          # GoogleTest FetchContent, gps_pipeline_tests
-│   ├── test_placeholder.cpp    # тривиальный тест scaffold
-│   ├── test_types.cpp          ✅ 9 тестов (GpsPoint, FilterResult, интерфейсы)
-│   └── test_checksum.cpp       ✅ 13 тестов (ChecksumValidator)
+│   ├── test_placeholder.cpp    # scaffold
+│   ├── test_types.cpp          ✅ 9 тестов
+│   ├── test_checksum.cpp       ✅ 13 тестов
+│   └── test_parser.cpp         ✅ 17 тестов
 ├── data/
 │   └── sample.nmea         # 6 сценариев, checksum рассчитаны
 └── docs/
@@ -91,7 +94,7 @@ ctest --preset=x64-debug --output-on-failure
 | **0 — Scaffolding** | ✅ Завершён | CMake + GoogleTest, структура директорий, sample.nmea |
 | **1 — Типы данных** | ✅ Завершён | GpsPoint, FilterStatus/Result, IGpsFilter, IOutput, INmeaParser |
 | **2 — Checksum** | ✅ Завершён | ChecksumValidator: compute + validate, 13 тестов |
-| **3 — Parser NMEA** | ⬜ Не начат | RMC, GGA, конвертация |
+| **3 — Parser NMEA** | ✅ Завершён | NmeaParser: RMC+GGA stateful, DDMM→decimal, knots→km/h, 17 тестов |
 | **4 — Filters** | ⬜ Не начат | 4 фильтра + FilterChain |
 | **5 — Output** | ⬜ Не начат | ConsoleOutput + MockOutput |
 | **6 — Pipeline** | ⬜ Не начат | оркестратор, DI |
@@ -134,9 +137,16 @@ ctest --preset=x64-debug --output-on-failure
 
 ## Следующий шаг
 
-**Этап 3 — Парсер NMEA (TDD):**
-- `tests/test_parser.cpp` — тесты сначала: RMC (валидный, невалидный fix, плохой checksum), GGA, конвертация координат DDMM.MMMM→decimal
-- `include/parser/NmeaParser.h` + `src/parser/NmeaParser.cpp`
-- `NmeaParser` — stateful: накапливает RMC + GGA, при совпадении time эмитирует `GpsPoint`
-- Скорость из RMC — в узлах (knots), конвертировать в км/ч (× 1.852)
-- Добавить `NmeaParser.cpp` в `gps_pipeline_lib`
+**Этап 4 — Фильтры (TDD):**
+
+| Фильтр | Логика |
+|---|---|
+| `SatelliteFilter(int min=4)` | `satellites < min` → Reject |
+| `SpeedFilter(double maxKmh=200)` | `speed_kmh > max` → Reject |
+| `CoordinateJumpFilter(double maxM)` | расстояние от предыдущей точки > max → Reject |
+| `StopFilter(double threshKmh=2)` | `speed_kmh < thresh` → Pass + `point.stopped=true` |
+| `FilterChain` | цепочка: первый Reject прерывает, приоритетный порядок |
+
+- `CoordinateJumpFilter` stateful: хранит `prev` точку, вычисляет расстояние по формуле хаверсинуса
+- Остальные фильтры безсостоятельные (stateless)
+- `FilterChain` владеет фильтрами (уникальные указатели), также реализует `IGpsFilter`
