@@ -41,12 +41,14 @@ gps-pipeline/
 ├── .gitattributes          # text=auto, eol=lf для cpp/h/md/cmake/json/nmea
 ├── README.md               # заглушка
 ├── src/
-│   ├── main.cpp            # заглушка (Stage 7)
-│   └── placeholder.cpp     # пустой исходник для компиляции lib (удалить на Stage 1)
+│   ├── main.cpp                    # заглушка (Stage 7)
+│   └── parser/
+│       └── ChecksumValidator.cpp   ✅
 ├── include/
 │   ├── GpsPoint.h              ✅ struct GpsPoint
 │   ├── parser/
-│   │   └── INmeaParser.h       ✅ интерфейс парсера
+│   │   ├── INmeaParser.h           ✅ интерфейс парсера
+│   │   └── ChecksumValidator.h     ✅ compute() + validate()
 │   ├── filter/
 │   │   └── IGpsFilter.h        ✅ FilterStatus, FilterResult, IGpsFilter
 │   ├── output/
@@ -55,7 +57,8 @@ gps-pipeline/
 ├── tests/
 │   ├── CMakeLists.txt          # GoogleTest FetchContent, gps_pipeline_tests
 │   ├── test_placeholder.cpp    # тривиальный тест scaffold
-│   └── test_types.cpp          ✅ 9 тестов (GpsPoint, FilterResult, интерфейсы)
+│   ├── test_types.cpp          ✅ 9 тестов (GpsPoint, FilterResult, интерфейсы)
+│   └── test_checksum.cpp       ✅ 13 тестов (ChecksumValidator)
 ├── data/
 │   └── sample.nmea         # 6 сценариев, checksum рассчитаны
 └── docs/
@@ -87,7 +90,7 @@ ctest --preset=x64-debug --output-on-failure
 |---|---|---|
 | **0 — Scaffolding** | ✅ Завершён | CMake + GoogleTest, структура директорий, sample.nmea |
 | **1 — Типы данных** | ✅ Завершён | GpsPoint, FilterStatus/Result, IGpsFilter, IOutput, INmeaParser |
-| **2 — Checksum** | ⬜ Не начат | TDD |
+| **2 — Checksum** | ✅ Завершён | ChecksumValidator: compute + validate, 13 тестов |
 | **3 — Parser NMEA** | ⬜ Не начат | RMC, GGA, конвертация |
 | **4 — Filters** | ⬜ Не начат | 4 фильтра + FilterChain |
 | **5 — Output** | ⬜ Не начат | ConsoleOutput + MockOutput |
@@ -131,8 +134,9 @@ ctest --preset=x64-debug --output-on-failure
 
 ## Следующий шаг
 
-**Этап 2 — Checksum-валидатор (TDD):**
-- `tests/test_checksum.cpp` — тесты сначала: валидный checksum, невалидный, пустая строка, без `*`, без `$`
-- `include/parser/ChecksumValidator.h` + `src/parser/ChecksumValidator.cpp`
-- Алгоритм: XOR всех байт между `$` и `*` (не включая их), результат — двузначный HEX
-- Добавить `src/parser/ChecksumValidator.cpp` в `gps_pipeline_lib` в `CMakeLists.txt`
+**Этап 3 — Парсер NMEA (TDD):**
+- `tests/test_parser.cpp` — тесты сначала: RMC (валидный, невалидный fix, плохой checksum), GGA, конвертация координат DDMM.MMMM→decimal
+- `include/parser/NmeaParser.h` + `src/parser/NmeaParser.cpp`
+- `NmeaParser` — stateful: накапливает RMC + GGA, при совпадении time эмитирует `GpsPoint`
+- Скорость из RMC — в узлах (knots), конвертировать в км/ч (× 1.852)
+- Добавить `NmeaParser.cpp` в `gps_pipeline_lib`

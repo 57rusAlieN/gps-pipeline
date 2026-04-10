@@ -129,10 +129,10 @@ gps-pipeline/
 - [x] `include/output/IOutput.h` — интерфейс вывода
 - [x] Тест: `tests/test_types.cpp` — 9 тестов, 10/10 GREEN
 
-### Этап 2 — Checksum (TDD) `[ ]`
-- [ ] Тест: `test_checksum.cpp` — валидный/невалидный checksum, пустая строка, без `*`
-- [ ] `include/parser/ChecksumValidator.h` + `src/parser/ChecksumValidator.cpp`
-- [ ] Тесты зелёные
+### Этап 2 — Checksum (TDD) `[✅]`
+- [x] Тест: `test_checksum.cpp` — 13 тестов (compute, validate, edge cases)
+- [x] `include/parser/ChecksumValidator.h` + `src/parser/ChecksumValidator.cpp`
+- [x] Тесты зелёные (23/23)
 
 ### Этап 3 — Парсер NMEA (TDD) `[ ]`
 - [ ] Тест: `test_parser.cpp` — RMC: валидный, невалидный fix, отсутствующие поля
@@ -198,7 +198,7 @@ gps-pipeline/
 |------|--------|--------|
 | 0 — Scaffolding    | ✅ Завершён | — |
 | 1 — Типы данных    | ✅ Завершён | a74a51b |
-| 2 — Checksum       | ⬜ Не начат | — |
+| 2 — Checksum       | ✅ Завершён | ab1edb0 |
 | 3 — Парсер NMEA    | ⬜ Не начат | — |
 | 4 — Фильтры        | ⬜ Не начат | — |
 | 5 — Output         | ⬜ Не начат | — |
