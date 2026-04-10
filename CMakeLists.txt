@@ -13,6 +13,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_library(gps_pipeline_lib STATIC
     src/parser/ChecksumValidator.cpp
     src/parser/NmeaParser.cpp
+    src/filter/SatelliteFilter.cpp
+    src/filter/SpeedFilter.cpp
+    src/filter/CoordinateJumpFilter.cpp
+    src/filter/StopFilter.cpp
+    src/filter/FilterChain.cpp
+    src/filter/MovingAverageFilter.cpp
+    src/filter/FirLowPassFilter.cpp
 )
 
 target_include_directories(gps_pipeline_lib PUBLIC

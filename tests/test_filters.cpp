@@ -414,11 +414,14 @@ TEST_F(MovingAverageFilterTest, SmoothesAllTargetFields)
 TEST_F(MovingAverageFilterTest, LargerWindowSmoothesMore)
 {
     MovingAverageFilter big(9);
-    // After first fill at 0, feed 100 nine times → average rises to 50
     auto p = makePoint(); p.lat = 0.0;
-    big.process(p);   // fill with 0
-    for (int i = 0; i < 9; ++i) { p.lat = 100.0; big.process(p); }
-    EXPECT_LT(p.lat, 100.0);   // still below 100 due to smoothing history
+    big.process(p);   // fill window-9 with 0
+
+    // Feed 5 samples of 100 — fewer than window size, so history still has 0s
+    // window-9: [0,0,0,0,100,100,100,100,100] → avg ≈ 55.6
+    // window-3 (this.filter): already full of 100s after 3 samples → avg = 100
+    for (int i = 0; i < 5; ++i) { p.lat = 100.0; big.process(p); }
+    EXPECT_LT(p.lat, 100.0);   // window-9 lags behind window-3
 }
 
 // ===========================================================================
