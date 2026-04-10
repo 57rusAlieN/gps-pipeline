@@ -140,13 +140,15 @@ gps-pipeline/
 - [x] RMC+GGA stateful парсер, конвертация DDMM→decimal, knots→km/h
 - [x] Тесты зелёные (42/42)
 
-### Этап 4 — Фильтры (TDD) `[ ]`
-- [ ] Тест + реализация `SatelliteFilter` (мин. количество спутников, дефолт 4)
-- [ ] Тест + реализация `SpeedFilter` (макс. скорость, дефолт 200 км/ч)
-- [ ] Тест + реализация `CoordinateJumpFilter` (макс. расстояние между точками)
-- [ ] Тест + реализация `StopFilter` (скорость < порога → помечать как "stopped")
-- [ ] Тест + реализация `FilterChain` (цепочка с приоритетами, первый reject выигрывает)
-- [ ] `include/filter/FilterChain.h` + `src/filter/FilterChain.cpp`
+### Этап 4 — Фильтры (TDD) `[✅]`
+- [x] `SatelliteFilter` — отвергает при satellites < min (default 4)
+- [x] `SpeedFilter` — отвергает при speed > max (default 200 км/ч)
+- [x] `CoordinateJumpFilter` — stateful, формула гаверсинуса, default 500 м
+- [x] `StopFilter` — устанавливает point.stopped=true, не отвергает
+- [x] `FilterChain` — Composite, первый Reject останавливает цепочку
+- [x] `MovingAverageFilter` (ПИФ) — прямоугольный фильтр, windowSize
+- [x] `FirLowPassFilter` (КИХ) — windowed-sinc, Частота Найквиста-нормированная, окно Хэмминга
+- [x] Тесты зелёные (83/83)
 
 ### Этап 5 — Output (TDD) `[ ]`
 - [ ] `include/output/IOutput.h` — интерфейс
@@ -199,7 +201,7 @@ gps-pipeline/
 | 1 — Типы данных    | ✅ Завершён | a74a51b |
 | 2 — Checksum       | ✅ Завершён | ab1edb0 |
 | 3 — Парсер NMEA    | ✅ Завершён | fa2e076 |
-| 4 — Фильтры        | ⬜ Не начат | — |
+| 4 — Фильтры        | ✅ Завершён | edc3636 |
 | 5 — Output         | ⬜ Не начат | — |
 | 6 — Pipeline       | ⬜ Не начат | — |
 | 7 — Main / CLI     | ⬜ Не начат | — |

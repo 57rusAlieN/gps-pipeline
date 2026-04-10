@@ -95,7 +95,7 @@ ctest --preset=x64-debug --output-on-failure
 | **1 — Типы данных** | ✅ Завершён | GpsPoint, FilterStatus/Result, IGpsFilter, IOutput, INmeaParser |
 | **2 — Checksum** | ✅ Завершён | ChecksumValidator: compute + validate, 13 тестов |
 | **3 — Parser NMEA** | ✅ Завершён | NmeaParser: RMC+GGA stateful, DDMM→decimal, knots→km/h, 17 тестов |
-| **4 — Filters** | ⬜ Не начат | 4 фильтра + FilterChain |
+| **4 — Filters** | ✅ Завершён | Валидация (Satellite/Speed/Jump/Stop) + FilterChain + ПИФ/КИХ |
 | **5 — Output** | ⬜ Не начат | ConsoleOutput + MockOutput |
 | **6 — Pipeline** | ⬜ Не начат | оркестратор, DI |
 | **7 — Main/CLI** | ⬜ Не начат | чтение файла, аргументы |
@@ -137,16 +137,10 @@ ctest --preset=x64-debug --output-on-failure
 
 ## Следующий шаг
 
-**Этап 4 — Фильтры (TDD):**
-
-| Фильтр | Логика |
-|---|---|
-| `SatelliteFilter(int min=4)` | `satellites < min` → Reject |
-| `SpeedFilter(double maxKmh=200)` | `speed_kmh > max` → Reject |
-| `CoordinateJumpFilter(double maxM)` | расстояние от предыдущей точки > max → Reject |
-| `StopFilter(double threshKmh=2)` | `speed_kmh < thresh` → Pass + `point.stopped=true` |
-| `FilterChain` | цепочка: первый Reject прерывает, приоритетный порядок |
-
-- `CoordinateJumpFilter` stateful: хранит `prev` точку, вычисляет расстояние по формуле хаверсинуса
-- Остальные фильтры безсостоятельные (stateless)
-- `FilterChain` владеет фильтрами (уникальные указатели), также реализует `IGpsFilter`
+**Этап 5 — Output (TDD):**
+- `include/output/ConsoleOutput.h` + `src/output/ConsoleOutput.cpp`
+- `tests/test_output.cpp` — формат строк согласно ТЗ: `[HH:MM:SS]`, Pass/Reject/Error
+- `MockOutput` в `tests/` для изоляции тестов Pipeline
+- Формат writePoint: `[12:00:00] Coordinates: 55.75206°N, 37.65946°E  Speed: 46.3 km/h ...`
+- Формат writeRejected: `[12:00:02] Point rejected: coordinate jump detected`
+- Формат writeError: `[12:00:05] Parse error: invalid checksum`
