@@ -19,6 +19,6 @@ struct FilterResult
 class IGpsFilter
 {
 public:
-    virtual FilterResult process(const GpsPoint& point) = 0;
+    virtual FilterResult process(GpsPoint& point) = 0;
     virtual ~IGpsFilter() = default;
 };

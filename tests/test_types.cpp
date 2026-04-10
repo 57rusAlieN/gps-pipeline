@@ -81,7 +81,7 @@ namespace {
 class AlwaysPassFilter final : public IGpsFilter
 {
 public:
-    FilterResult process(const GpsPoint&) override
+    FilterResult process(GpsPoint&) override
     {
         return {FilterStatus::Pass, ""};
     }
@@ -90,7 +90,7 @@ public:
 class AlwaysRejectFilter final : public IGpsFilter
 {
 public:
-    FilterResult process(const GpsPoint&) override
+    FilterResult process(GpsPoint&) override
     {
         return {FilterStatus::Reject, "always rejected"};
     }
