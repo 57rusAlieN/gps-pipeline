@@ -97,7 +97,7 @@ ctest --preset=x64-debug --output-on-failure
 | **3 — Parser NMEA** | ✅ Завершён | NmeaParser: RMC+GGA stateful, DDMM→decimal, knots→km/h, 17 тестов |
 | **4 — Filters** | ✅ Завершён | Валидация (Satellite/Speed/Jump/Stop) + FilterChain + ПИФ/КИХ |
 | **5 — Output** | ✅ Завершён | ConsoleOutput: пишет в std::ostream, формат по ТЗ, 15 тестов |
-| **6 — Pipeline** | ⬜ Не начат | оркестратор, DI |
+| **6 — Pipeline** | ✅ Завершён | Pipeline DI-оркестратор, E2E все 6 сценариев, 12 тестов |
 | **7 — Main/CLI** | ⬜ Не начат | чтение файла, аргументы |
 | **8 — sample.nmea** | ✅ Завершён | создан вместе со Stage 0 |
 | **9 — README** | ⬜ Не начат | — |
@@ -137,9 +137,8 @@ ctest --preset=x64-debug --output-on-failure
 
 ## Следующий шаг
 
-**Этап 6 — Pipeline (TDD):**
-- `include/pipeline/Pipeline.h` + `src/pipeline/Pipeline.cpp`
-- DI через конструктор: `Pipeline(INmeaParser&, FilterChain&, IOutput&)`
-- `processLine(const std::string& line)` — оркестрация: parse → filter → output
-- `tests/test_pipeline.cpp` — E2E с MockOutput: 6 сценариев из sample.nmea
-- Pipeline сам проверяет checksum до вызова parser, чтобы различать «reject» и «checksum error»
+**Этап 7 — Main / CLI:**
+- `src/main.cpp` — чтение файла построчно, создание Pipeline с реальными зависимостями
+- Принимает путь к NMEA-файлу как `argv[1]`
+- Wiring: NmeaParser + FilterChain(Sat,Speed,Jump,Stop) + ConsoleOutput(std::cout) → Pipeline
+- Обработка ошибок: файл не найден, нет аргументов

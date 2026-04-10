@@ -157,11 +157,12 @@ gps-pipeline/
 - [x] ConsoleOutput пишет в любой std::ostream, формат по ТЗ
 - [x] Тесты зелёные (98/98)
 
-### Этап 6 — Pipeline (TDD) `[ ]`
-- [ ] Тест: `test_pipeline.cpp` — E2E: подать строки, получить ожидаемый вывод (через MockOutput)
-- [ ] `include/pipeline/Pipeline.h` + `src/pipeline/Pipeline.cpp`
-- [ ] DI через конструктор: `Pipeline(INmeaParser&, std::vector<IGpsFilter*>, IOutput&)`
-- [ ] Тесты зелёные
+### Этап 6 — Pipeline (TDD) `[✅]`
+- [x] `tests/test_pipeline.cpp` — 12 тестов: unit + E2E по всем 6 сценариям sample.nmea
+- [x] `include/pipeline/Pipeline.h` + `src/pipeline/Pipeline.cpp`
+- [x] DI: `Pipeline(INmeaParser&, IGpsFilter&, IOutput&)`
+- [x] processLine: checksum → parse → filter → output
+- [x] Тесты зелёные (109/109)
 
 ### Этап 7 — Main / CLI `[ ]`
 - [ ] `src/main.cpp` — чтение файла построчно, создание Pipeline с реальными зависимостями
@@ -204,7 +205,7 @@ gps-pipeline/
 | 3 — Парсер NMEA    | ✅ Завершён | fa2e076 |
 | 4 — Фильтры        | ✅ Завершён | edc3636 |
 | 5 — Output         | ✅ Завершён | 55021f3 |
-| 6 — Pipeline       | ⬜ Не начат | — |
+| 6 — Pipeline       | ✅ Завершён | 3d01b27 |
 | 7 — Main / CLI     | ⬜ Не начат | — |
 | 8 — Тестовые данные| ✅ Завершён | — |
 | 9 — README.md      | ⬜ Не начат | — |
