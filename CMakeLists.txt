@@ -44,3 +44,41 @@ target_link_libraries(gps_pipeline PRIVATE gps_pipeline_lib)
 # ---------------------------------------------------------------------------
 enable_testing()
 add_subdirectory(tests)
+
+# ---------------------------------------------------------------------------
+# Code coverage (GCC / Clang only)
+#   cmake --preset=linux-coverage && cmake --build --preset=linux-coverage
+#   cmake --build --preset=linux-coverage --target coverage
+# ---------------------------------------------------------------------------
+option(ENABLE_COVERAGE "Build with gcov coverage instrumentation (GCC/Clang only)" OFF)
+
+if(ENABLE_COVERAGE)
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        message(FATAL_ERROR "ENABLE_COVERAGE requires GCC or Clang, got ${CMAKE_CXX_COMPILER_ID}")
+    endif()
+
+    add_compile_options(--coverage -O0 -g)
+    add_link_options(--coverage)
+
+    find_program(LCOV    lcov   REQUIRED)
+    find_program(GENHTML genhtml REQUIRED)
+
+    add_custom_target(coverage
+        COMMAND ${LCOV} --directory . --zerocounters
+        COMMAND $<TARGET_FILE:gps_pipeline_tests>
+        COMMAND ${LCOV} --directory . --capture
+                        --output-file coverage.info
+                        --exclude "*/googletest/*"
+                        --exclude "*/tests/*"
+                        --exclude "/usr/*"
+        COMMAND ${GENHTML} coverage.info
+                           --output-directory ${CMAKE_BINARY_DIR}/coverage_html
+                           --title "gps-pipeline coverage"
+                           --legend
+        COMMAND ${CMAKE_COMMAND} -E echo
+                "Coverage report: ${CMAKE_BINARY_DIR}/coverage_html/index.html"
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        DEPENDS gps_pipeline_tests
+        COMMENT "Generating lcov coverage report..."
+    )
+endif()

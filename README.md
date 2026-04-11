@@ -208,3 +208,39 @@ $GPGGA,120000,5545.1234,N,03739.5678,E,1,10,0.8,150.0,M,14.0,M,,*4E
 | Скорость в узлах | km/h (x 1.852) |
 | Статус `V` в RMC | "No valid GPS fix" |
 | Неверный XOR-checksum | "Parse error: invalid checksum" |
+---
+
+---
+
+## Покрытие тестами
+
+Оценка основана на 109 unit-тестах (GTest), покрывающих все методы библиотеки.
+
+main.cpp (~90 строк) является composition root и намеренно не покрывается unit-тестами; его поведение проверяется E2E-тестом test_pipeline.cpp::FullSampleNmeaSequence.
+
+### Оценка по модулям
+
+| Модуль | LOC | Тесты | Оценка |
+|---|---|---|---|
+| ChecksumValidator | 15 | 13 | 100% |
+| NmeaParser | 90 | 18 | ~95% |
+| SatelliteFilter | 12 | 3 | 100% |
+| SpeedFilter | 12 | 3 | 100% |
+| CoordinateJumpFilter | 45 | 6 | ~100% |
+| StopFilter | 12 | 3 | 100% |
+| FilterChain | 20 | 5 | 100% |
+| MovingAverageFilter | 35 | 6 | ~95% |
+| FirLowPassFilter | 55 | 8 | ~90% |
+| ConsoleOutput | 45 | 15 | ~100% |
+| Pipeline | 55 | 12 | ~95% |
+| **Итого (библиотека)** | **~396** | **109** | **>95%** |
+
+### coverage-отчёт (Linux / GCC + lcov)
+
+bash
+cmake --preset=linux-coverage
+cmake --build --preset=linux-coverage --target coverage
+xdg-open out/build/linux-coverage/coverage_html/index.html
+
+Пресет linux-coverage добавляет флаги --coverage -O0, запускает lcov и genhtml,
+отчёт появляется в out/build/linux-coverage/coverage_html/.
