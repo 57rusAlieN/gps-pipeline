@@ -1,4 +1,4 @@
-﻿#include <cmath>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -22,28 +22,73 @@
 #include "filter/MovingAverageFilter.h"
 #include "filter/FirLowPassFilter.h"
 #include "output/ConsoleOutput.h"
+#include "output/FileOutput.h"
+#include "output/IOutput.h"
+#include "config/Config.h"
+#include "config/ConfigLoader.h"
 #include "pipeline/Pipeline.h"
 
 static void printUsage()
 {
     std::cerr <<
-        "Usage: gps_pipeline <nmea_file> [-lpf <pif|fir>] [-cf <0.01..1>]\n"
-        "  -lpf   smoothing filter type: pif (moving average) or fir (windowed-sinc)\n"
-        "         default: pif\n"
-        "  -cf    low-pass cutoff, Nyquist-normalised [0.01..1]\n"
-        "         1 = no smoothing (all-pass); default: 0.2\n";
+        "Usage: gps_pipeline <nmea_file> [--config <cfg.json>]\n"
+        "                               [-lpf <pif|fir>] [-cf <0.01..1>]\n"
+        "  --config  JSON configuration file (see config/default.json)\n"
+        "            If given, -lpf and -cf flags are ignored.\n"
+        "  -lpf      smoothing filter: pif (moving average) or fir (windowed-sinc)\n"
+        "            default: pif\n"
+        "  -cf       low-pass cutoff, Nyquist-normalised [0.01..1]\n"
+        "            1 = no smoothing (all-pass); default: 0.2\n";
 }
 
-// Argument token classifier — maps raw argv string to an enum so the
-// parsing loop can use a switch (jump-table dispatch, compact binary).
-enum class CliOpt { File, Lpf, Cf, Unknown };
+enum class CliOpt { File, Config, Lpf, Cf, Unknown };
 
 static CliOpt classifyArg(const char* s) noexcept
 {
-    if (s[0] != '-')              return CliOpt::File;
-    if (std::strcmp(s, "-lpf") == 0) return CliOpt::Lpf;
-    if (std::strcmp(s, "-cf")  == 0) return CliOpt::Cf;
+    if (s[0] != '-')                    return CliOpt::File;
+    if (std::strcmp(s, "--config") == 0) return CliOpt::Config;
+    if (std::strcmp(s, "-lpf")     == 0) return CliOpt::Lpf;
+    if (std::strcmp(s, "-cf")      == 0) return CliOpt::Cf;
     return CliOpt::Unknown;
+}
+
+static void buildFilters(FilterChain& filters, const Config& cfg)
+{
+    const auto& f = cfg.filters;
+
+    if (f.satellite.enabled)
+        filters.add(std::make_unique<SatelliteFilter>(f.satellite.min_satellites));
+
+    if (f.speed.enabled)
+        filters.add(std::make_unique<SpeedFilter>(f.speed.max_speed_kmh));
+
+    if (f.jump.enabled)
+        filters.add(std::make_unique<CoordinateJumpFilter>(f.jump.max_distance_m));
+
+    if (f.stop.enabled)
+        filters.add(std::make_unique<StopFilter>(f.stop.threshold_kmh));
+
+    if (f.lpf.enabled && f.lpf.cutoff < 1.0)
+    {
+        if (f.lpf.type == "fir")
+            filters.add(std::make_unique<FirLowPassFilter>(f.lpf.cutoff, 21));
+        else
+        {
+            const int w = std::max(3, static_cast<int>(std::round(0.886 / f.lpf.cutoff)));
+            filters.add(std::make_unique<MovingAverageFilter>(w));
+        }
+    }
+}
+
+static std::unique_ptr<IOutput> buildOutput(const Config& cfg)
+{
+    if (cfg.output.type == "file")
+        return std::make_unique<FileOutput>(
+            cfg.output.path,
+            cfg.output.rotation.max_size_kb,
+            cfg.output.rotation.max_files);
+
+    return std::make_unique<ConsoleOutput>(std::cout);
 }
 
 int main(int argc, char* argv[])
@@ -54,12 +99,10 @@ int main(int argc, char* argv[])
     _setmode(_fileno(stderr), _O_BINARY);
 #endif
 
-    // ---------------------------------------------------------------------------
-    // Argument parsing
-    // ---------------------------------------------------------------------------
     std::string filePath;
-    std::string lpfType    = "pif";   // default: moving average
-    double      cutoffNorm = 0.2;     // default: 0.2 × Nyquist
+    std::string configPath;
+    std::string lpfType    = "pif";
+    double      cutoffNorm = 0.2;
 
     for (int i = 1; i < argc; ++i)
     {
@@ -73,6 +116,15 @@ int main(int argc, char* argv[])
                 return EXIT_FAILURE;
             }
             filePath = argv[i];
+            break;
+
+        case CliOpt::Config:
+            if (i + 1 >= argc)
+            {
+                std::cerr << "Error: --config requires a file path\n";
+                return EXIT_FAILURE;
+            }
+            configPath = argv[++i];
             break;
 
         case CliOpt::Lpf:
@@ -129,40 +181,39 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    // ---------------------------------------------------------------------------
-    // Composition root
-    // ---------------------------------------------------------------------------
-    NmeaParser parser;
-
-    FilterChain filters;
-    filters.add(std::make_unique<SatelliteFilter>(4));          // min 4 satellites
-    filters.add(std::make_unique<SpeedFilter>(200.0));          // max 200 km/h
-    filters.add(std::make_unique<CoordinateJumpFilter>(500.0)); // max 500 m jump
-    filters.add(std::make_unique<StopFilter>(3.0));             // < 3 km/h -> stopped
-
-    // Low-pass smoothing filter (after validation/correction filters)
-    // cutoffNorm == 1.0 means Nyquist (all-pass) => skip filter
-    if (cutoffNorm < 1.0)
+    // Build config
+    Config cfg;
+    if (!configPath.empty())
     {
-        if (lpfType == "fir")
+        try   { cfg = ConfigLoader::loadFile(configPath); }
+        catch (const std::exception& e)
         {
-            filters.add(std::make_unique<FirLowPassFilter>(cutoffNorm, 21));
-        }
-        else  // pif — moving average
-        {
-            // -3dB of box filter: fc_nyquist ≈ 0.886/N  =>  N ≈ 0.886/fc
-            const int windowSize =
-                std::max(3, static_cast<int>(std::round(0.886 / cutoffNorm)));
-            filters.add(std::make_unique<MovingAverageFilter>(windowSize));
+            std::cerr << "Error: " << e.what() << "\n";
+            return EXIT_FAILURE;
         }
     }
+    else
+    {
+        cfg.filters.lpf.enabled = (cutoffNorm < 1.0);
+        cfg.filters.lpf.type    = lpfType;
+        cfg.filters.lpf.cutoff  = cutoffNorm;
+    }
 
-    ConsoleOutput output{std::cout};
-    Pipeline pipeline{parser, filters, output};
+    // Composition root
+    NmeaParser  parser;
+    FilterChain filters;
+    buildFilters(filters, cfg);
 
-    // ---------------------------------------------------------------------------
-    // Process file line by line
-    // ---------------------------------------------------------------------------
+    std::unique_ptr<IOutput> output;
+    try   { output = buildOutput(cfg); }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Error: " << e.what() << "\n";
+        return EXIT_FAILURE;
+    }
+
+    Pipeline pipeline{parser, filters, *output};
+
     std::string line;
     while (std::getline(file, line))
         pipeline.processLine(line);

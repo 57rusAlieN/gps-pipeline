@@ -22,6 +22,7 @@ std::optional<GpsPoint> NmeaParser::parse(const std::string& line)
 
     if (type == "GPRMC") return parseRmc(line);
     if (type == "GPGGA") return parseGga(line);
+    if (type == "GPGSV") { parseGsv(line); return std::nullopt; }
 
     return std::nullopt;  // unknown / unhandled sentence type
 }
@@ -119,6 +120,11 @@ std::optional<GpsPoint> NmeaParser::tryEmit()
     pt.altitude   = m_gga->altitude;
     pt.satellites = m_gga->satellites;
     pt.hdop       = m_gga->hdop;
+    // Attach satellite-in-view data collected from GPGSV sentences
+    pt.satellites_in_view = std::move(m_pendingSatellites);
+    m_pendingSatellites.clear();
+    m_gsvTotal    = 0;
+    m_gsvReceived = 0;
     // pt.stopped is left false; StopFilter sets it later
 
     m_rmc.reset();
@@ -164,4 +170,59 @@ double NmeaParser::convertCoord(const std::string& value, char direction)
 double NmeaParser::knotsToKmh(double knots) noexcept
 {
     return knots * 1.852;
+}
+
+// ---------------------------------------------------------------------------
+// GSV parser — accumulates satellite-in-view data across multiple sentences
+// ---------------------------------------------------------------------------
+// Format: $GPGSV,totalMsgs,msgNum,totalSvs,PRN1,elev1,az1,snr1,[...],[*cs]
+void NmeaParser::parseGsv(const std::string& sentence)
+{
+    if (!ChecksumValidator::validate(sentence))
+        return;
+
+    const auto star   = sentence.find('*');
+    const auto fields = split(sentence.substr(1, star == std::string::npos
+                                                  ? sentence.size() - 1
+                                                  : star - 1), ',');
+
+    // Minimum: type, totalMsgs, msgNum, totalSvs  = 4 fields
+    if (fields.size() < 4) return;
+
+    try
+    {
+        const int total  = std::stoi(fields[1]);
+        const int msgNum = std::stoi(fields[2]);
+
+        if (msgNum == 1)
+        {
+            // First message of a new GSV group — reset accumulator
+            m_pendingSatellites.clear();
+            m_gsvTotal    = total;
+            m_gsvReceived = 0;
+        }
+        else if (total != m_gsvTotal)
+        {
+            // Sequence mismatch — discard
+            return;
+        }
+
+        ++m_gsvReceived;
+
+        // Each satellite block: PRN, elevation, azimuth, SNR (fields 4..N, groups of 4)
+        for (std::size_t i = 4; i + 3 < fields.size(); i += 4)
+        {
+            // SNR may be empty (satellite tracked but no signal)
+            const std::string& prnStr = fields[i];
+            if (prnStr.empty()) break;
+
+            SatelliteInfo sv;
+            sv.prn       = std::stoi(prnStr);
+            sv.elevation = fields[i+1].empty() ? 0 : std::stoi(fields[i+1]);
+            sv.azimuth   = fields[i+2].empty() ? 0 : std::stoi(fields[i+2]);
+            sv.snr       = fields[i+3].empty() ? 0 : std::stoi(fields[i+3]);
+            m_pendingSatellites.push_back(sv);
+        }
+    }
+    catch (const std::exception&) { /* ignore malformed GSV */ }
 }

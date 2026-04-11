@@ -1,5 +1,6 @@
 #pragma once
 
+#include "GpsPoint.h"
 #include "parser/INmeaParser.h"
 
 #include <optional>
@@ -36,9 +37,15 @@ private:
     std::optional<RmcData> m_rmc;
     std::optional<GgaData> m_gga;
 
+    // Satellite-in-view data accumulated from GPGSV sentences
+    std::vector<SatelliteInfo> m_pendingSatellites;
+    int m_gsvTotal    = 0;  // total GSV messages expected
+    int m_gsvReceived = 0;  // messages received so far
+
     // Parse individual sentence types; each validates its own checksum
     std::optional<GpsPoint> parseRmc(const std::string& sentence);
     std::optional<GpsPoint> parseGga(const std::string& sentence);
+    void                    parseGsv(const std::string& sentence);
 
     // Emit a GpsPoint if both m_rmc and m_gga are set with matching time;
     // resets both on success.

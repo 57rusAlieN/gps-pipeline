@@ -12,8 +12,21 @@ if(MSVC)
 endif()
 
 # ---------------------------------------------------------------------------
-# Library: all business logic (parser, filters, output, pipeline)
-# Populated incrementally as source files are added in later stages.
+# nlohmann/json (header-only, downloaded once)
+# ---------------------------------------------------------------------------
+include(FetchContent)
+
+FetchContent_Declare(
+    nlohmann_json
+    URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+set(JSON_BuildTests  OFF CACHE INTERNAL "")
+set(JSON_Install     OFF CACHE INTERNAL "")
+FetchContent_MakeAvailable(nlohmann_json)
+
+# ---------------------------------------------------------------------------
+# Library: all business logic
 # ---------------------------------------------------------------------------
 add_library(gps_pipeline_lib STATIC
     src/parser/ChecksumValidator.cpp
@@ -26,12 +39,15 @@ add_library(gps_pipeline_lib STATIC
     src/filter/MovingAverageFilter.cpp
     src/filter/FirLowPassFilter.cpp
     src/output/ConsoleOutput.cpp
+    src/output/FileOutput.cpp
     src/pipeline/Pipeline.cpp
+    src/config/ConfigLoader.cpp
 )
 
 target_include_directories(gps_pipeline_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+target_link_libraries(gps_pipeline_lib PUBLIC nlohmann_json::nlohmann_json)
 
 # ---------------------------------------------------------------------------
 # Executable

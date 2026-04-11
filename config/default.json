@@ -1,0 +1,12 @@
+{
+  "filters": {
+    "satellite": { "enabled": true,  "min_satellites": 4     },
+    "speed":     { "enabled": true,  "max_speed_kmh": 200.0  },
+    "jump":      { "enabled": true,  "max_distance_m": 500.0 },
+    "stop":      { "enabled": true,  "threshold_kmh": 3.0    },
+    "lpf":       { "enabled": false, "type": "pif", "cutoff": 0.2 }
+  },
+  "output": {
+    "type": "console"
+  }
+}

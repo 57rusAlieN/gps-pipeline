@@ -18,6 +18,8 @@ add_executable(gps_pipeline_tests
     test_filters.cpp
     test_output.cpp
     test_pipeline.cpp
+    test_config.cpp
+    test_fileoutput.cpp
 )
 
 target_link_libraries(gps_pipeline_tests

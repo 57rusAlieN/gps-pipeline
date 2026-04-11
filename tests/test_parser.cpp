@@ -16,13 +16,19 @@ constexpr const char* kGgaSlow   = "$GPGGA,120001,5545.1235,N,03739.5679,E,1,10,
 constexpr const char* kRmcVoid   = "$GPRMC,120004,V,,,,,,,270124,,,N*56";
 constexpr const char* kRmcBadCs  = "$GPRMC,120005,A,5545.1234,N,03739.5678,E,025.0,045.0,270124,,,A*00";
 
+// Two GSV sentences covering 5 satellites (total_in_view = 5)
+constexpr const char* kGsv1 =
+    "$GPGSV,2,1,05,07,84,069,43,17,49,161,43,15,47,270,43,18,36,314,44*79";
+constexpr const char* kGsv2 =
+    "$GPGSV,2,2,05,08,20,296,37*4F";
+
+} // namespace
+
 class NmeaParserTest : public ::testing::Test
 {
 protected:
     NmeaParser parser;
 };
-
-} // namespace
 
 // ---------------------------------------------------------------------------
 // Single-sentence — parser waits for the pair
@@ -190,3 +196,85 @@ TEST_F(NmeaParserTest, StateResetsAfterEmit)
     EXPECT_EQ(second->time, "120001");
     EXPECT_NEAR(second->speed_kmh, 1.2 * 1.852, 1e-6);
 }
+
+// ===========================================================================
+// GPGSV — satellite-in-view data
+// ===========================================================================
+
+TEST_F(NmeaParserTest, GsvAloneReturnsNullopt)
+{
+    EXPECT_FALSE(parser.parse(kGsv1).has_value());
+    EXPECT_FALSE(parser.parse(kGsv2).has_value());
+}
+
+TEST_F(NmeaParserTest, GsvBeforePairAttachesSatelliteData)
+{
+    // Feed two GSV sentences, then the RMC+GGA pair
+    parser.parse(kGsv1);
+    parser.parse(kGsv2);
+    parser.parse(kRmcMoving);
+    const auto pt = parser.parse(kGgaMoving);
+
+    ASSERT_TRUE(pt.has_value());
+    EXPECT_EQ(pt->satellites_in_view.size(), 5u);
+}
+
+TEST_F(NmeaParserTest, GsvFirstSatelliteFieldsCorrect)
+{
+    parser.parse(kGsv1);
+    parser.parse(kGsv2);
+    parser.parse(kRmcMoving);
+    const auto pt = parser.parse(kGgaMoving);
+
+    ASSERT_TRUE(pt.has_value());
+    ASSERT_GE(pt->satellites_in_view.size(), 1u);
+
+    const auto& sat = pt->satellites_in_view[0];
+    EXPECT_EQ(sat.prn,       7);
+    EXPECT_EQ(sat.elevation, 84);
+    EXPECT_EQ(sat.azimuth,   69);
+    EXPECT_EQ(sat.snr,       43);
+}
+
+TEST_F(NmeaParserTest, GsvLastSatelliteFromSecondMessage)
+{
+    parser.parse(kGsv1);
+    parser.parse(kGsv2);
+    parser.parse(kRmcMoving);
+    const auto pt = parser.parse(kGgaMoving);
+
+    ASSERT_TRUE(pt.has_value());
+    ASSERT_EQ(pt->satellites_in_view.size(), 5u);
+
+    // Last sat (PRN 8) is from the second GSV sentence
+    const auto& last = pt->satellites_in_view[4];
+    EXPECT_EQ(last.prn,       8);
+    EXPECT_EQ(last.elevation, 20);
+    EXPECT_EQ(last.azimuth,   296);
+    EXPECT_EQ(last.snr,       37);
+}
+
+TEST_F(NmeaParserTest, NoGsvLeavesEmptySatelliteList)
+{
+    parser.parse(kRmcMoving);
+    const auto pt = parser.parse(kGgaMoving);
+
+    ASSERT_TRUE(pt.has_value());
+    EXPECT_TRUE(pt->satellites_in_view.empty());
+}
+
+TEST_F(NmeaParserTest, GsvDataClearedAfterEmit)
+{
+    // First point WITH GSV data
+    parser.parse(kGsv1);
+    parser.parse(kGsv2);
+    parser.parse(kRmcMoving);
+    parser.parse(kGgaMoving);
+
+    // Second point WITHOUT GSV data — should have empty satellites_in_view
+    parser.parse(kRmcSlow);
+    const auto pt2 = parser.parse(kGgaSlow);
+    ASSERT_TRUE(pt2.has_value());
+    EXPECT_TRUE(pt2->satellites_in_view.empty());
+}
+

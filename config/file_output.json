@@ -1,0 +1,17 @@
+{
+  "filters": {
+    "satellite": { "enabled": true, "min_satellites": 4     },
+    "speed":     { "enabled": true, "max_speed_kmh": 200.0  },
+    "jump":      { "enabled": true, "max_distance_m": 500.0 },
+    "stop":      { "enabled": true, "threshold_kmh": 3.0    },
+    "lpf":       { "enabled": true, "type": "fir", "cutoff": 0.15 }
+  },
+  "output": {
+    "type": "file",
+    "path": "gps_output.log",
+    "rotation": {
+      "max_size_kb": 512,
+      "max_files": 3
+    }
+  }
+}

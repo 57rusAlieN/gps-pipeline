@@ -36,6 +36,20 @@ void ConsoleOutput::writePoint(const GpsPoint& point)
          << "           Altitude: " << point.altitude << " m"
          << ", Satellites: " << point.satellites
          << ", HDOP: " << point.hdop << '\n';
+
+    // Optional: show per-satellite details from GPGSV if available
+    if (!point.satellites_in_view.empty())
+    {
+        m_os << "           In view (" << point.satellites_in_view.size() << "):";
+        for (const auto& sv : point.satellites_in_view)
+        {
+            m_os << "  PRN" << sv.prn
+                 << " el=" << sv.elevation
+                 << "\u00B0 az=" << sv.azimuth
+                 << "\u00B0 snr=" << sv.snr;
+        }
+        m_os << '\n';
+    }
 }
 
 // ---------------------------------------------------------------------------
