@@ -1,7 +1,7 @@
 #include "output/ConsoleOutput.h"
 
 #include <cmath>
-#include <format>
+#include <iomanip>
 
 ConsoleOutput::ConsoleOutput(std::ostream& os)
     : m_os{os}
@@ -25,18 +25,17 @@ void ConsoleOutput::writePoint(const GpsPoint& point)
 
     const std::string speedNote = point.stopped ? " (stopped)" : "";
 
-    m_os << std::format(
-        "{} Coordinates: {:.5f}\u00B0{}, {:.5f}\u00B0{}\n"
-        "           Speed: {:.1f} km/h{}, Course: {:.1f}\u00B0\n"
-        "           Altitude: {:.1f} m, Satellites: {}, HDOP: {:.1f}\n",
-        formatTime(point.time),
-        std::abs(point.lat), latDir,
-        std::abs(point.lon), lonDir,
-        point.speed_kmh, speedNote,
-        point.course,
-        point.altitude,
-        point.satellites,
-        point.hdop);
+    m_os << std::fixed
+         << formatTime(point.time)
+         << " Coordinates: "
+         << std::setprecision(5) << std::abs(point.lat) << "\u00B0" << latDir
+         << ", " << std::abs(point.lon) << "\u00B0" << lonDir << '\n'
+         << "           Speed: "
+         << std::setprecision(1) << point.speed_kmh << " km/h" << speedNote
+         << ", Course: " << point.course << "\u00B0\n"
+         << "           Altitude: " << point.altitude << " m"
+         << ", Satellites: " << point.satellites
+         << ", HDOP: " << point.hdop << '\n';
 }
 
 // ---------------------------------------------------------------------------
@@ -46,8 +45,7 @@ void ConsoleOutput::writePoint(const GpsPoint& point)
 void ConsoleOutput::writeRejected(const GpsPoint& point,
                                   const std::string& reason)
 {
-    m_os << std::format("{} Point rejected: {}\n",
-                        formatTime(point.time), reason);
+    m_os << formatTime(point.time) << " Point rejected: " << reason << '\n';
 }
 
 // ---------------------------------------------------------------------------
@@ -68,8 +66,7 @@ std::string ConsoleOutput::formatTime(const std::string& nmeaTime)
     if (nmeaTime.size() < 6)
         return "[??:??:??]";
 
-    return std::format("[{}:{}:{}]",
-                       nmeaTime.substr(0, 2),
-                       nmeaTime.substr(2, 2),
-                       nmeaTime.substr(4, 2));
+    return "[" + nmeaTime.substr(0, 2) + ":" +
+                  nmeaTime.substr(2, 2) + ":" +
+                  nmeaTime.substr(4, 2) + "]";
 }

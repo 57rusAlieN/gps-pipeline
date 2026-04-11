@@ -1,5 +1,6 @@
 ﻿#include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -26,11 +27,23 @@
 static void printUsage()
 {
     std::cerr <<
-        "Usage: gps_pipeline <nmea_file> [-lpf <pif|fir>] [-cf <0..0.99>]\n"
+        "Usage: gps_pipeline <nmea_file> [-lpf <pif|fir>] [-cf <0.01..1>]\n"
         "  -lpf   smoothing filter type: pif (moving average) or fir (windowed-sinc)\n"
         "         default: pif\n"
-        "  -cf    low-pass cutoff, Nyquist-normalised [0..0.99]\n"
-        "         0 = no smoothing; default: 0.2\n";
+        "  -cf    low-pass cutoff, Nyquist-normalised [0.01..1]\n"
+        "         1 = no smoothing (all-pass); default: 0.2\n";
+}
+
+// Argument token classifier — maps raw argv string to an enum so the
+// parsing loop can use a switch (jump-table dispatch, compact binary).
+enum class CliOpt { File, Lpf, Cf, Unknown };
+
+static CliOpt classifyArg(const char* s) noexcept
+{
+    if (s[0] != '-')              return CliOpt::File;
+    if (std::strcmp(s, "-lpf") == 0) return CliOpt::Lpf;
+    if (std::strcmp(s, "-cf")  == 0) return CliOpt::Cf;
+    return CliOpt::Unknown;
 }
 
 int main(int argc, char* argv[])
@@ -50,10 +63,19 @@ int main(int argc, char* argv[])
 
     for (int i = 1; i < argc; ++i)
     {
-        std::string arg = argv[i];
-
-        if (arg == "-lpf")
+        switch (classifyArg(argv[i]))
         {
+        case CliOpt::File:
+            if (!filePath.empty())
+            {
+                std::cerr << "Error: unexpected argument '" << argv[i] << "'\n";
+                printUsage();
+                return EXIT_FAILURE;
+            }
+            filePath = argv[i];
+            break;
+
+        case CliOpt::Lpf:
             if (i + 1 >= argc)
             {
                 std::cerr << "Error: -lpf requires an argument (pif or fir)\n";
@@ -65,9 +87,9 @@ int main(int argc, char* argv[])
                 std::cerr << "Error: -lpf must be 'pif' or 'fir', got '" << lpfType << "'\n";
                 return EXIT_FAILURE;
             }
-        }
-        else if (arg == "-cf")
-        {
+            break;
+
+        case CliOpt::Cf:
             if (i + 1 >= argc)
             {
                 std::cerr << "Error: -cf requires a numeric argument\n";
@@ -79,19 +101,16 @@ int main(int argc, char* argv[])
                 std::cerr << "Error: -cf value '" << argv[i] << "' is not a number\n";
                 return EXIT_FAILURE;
             }
-            if (cutoffNorm < 0.0 || cutoffNorm > 0.99)
+            if (cutoffNorm < 0.01 || cutoffNorm > 1.0)
             {
-                std::cerr << "Error: -cf must be in [0.0, 0.99], got " << cutoffNorm << "\n";
+                std::cerr << "Error: -cf must be in [0.01, 1.0], got " << cutoffNorm << "\n";
                 return EXIT_FAILURE;
             }
-        }
-        else if (filePath.empty() && arg[0] != '-')
-        {
-            filePath = arg;
-        }
-        else
-        {
-            std::cerr << "Error: unknown argument '" << arg << "'\n";
+            break;
+
+        case CliOpt::Unknown:
+        default:
+            std::cerr << "Error: unknown argument '" << argv[i] << "'\n";
             printUsage();
             return EXIT_FAILURE;
         }
@@ -122,8 +141,8 @@ int main(int argc, char* argv[])
     filters.add(std::make_unique<StopFilter>(3.0));             // < 3 km/h -> stopped
 
     // Low-pass smoothing filter (after validation/correction filters)
-    // cutoffNorm == 0 means "no smoothing"
-    if (cutoffNorm > 0.0)
+    // cutoffNorm == 1.0 means Nyquist (all-pass) => skip filter
+    if (cutoffNorm < 1.0)
     {
         if (lpfType == "fir")
         {

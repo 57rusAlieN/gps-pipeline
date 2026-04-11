@@ -3,8 +3,6 @@
 #include "parser/ChecksumValidator.h"
 #include "filter/IGpsFilter.h"
 
-#include <format>
-
 Pipeline::Pipeline(INmeaParser& parser, IGpsFilter& filter, IOutput& output)
     : m_parser{parser}
     , m_filter{filter}
@@ -70,7 +68,7 @@ std::string Pipeline::extractTime(const std::string& line)
 std::string Pipeline::formatTime(const std::string& t)
 {
     if (t.size() < 6) return "[??:??:??]";
-    return std::format("[{}:{}:{}]", t.substr(0, 2), t.substr(2, 2), t.substr(4, 2));
+    return "[" + t.substr(0, 2) + ":" + t.substr(2, 2) + ":" + t.substr(4, 2) + "]";
 }
 
 bool Pipeline::isVoidRmc(const std::string& line)

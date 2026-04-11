@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <numbers>
 #include <numeric>
 #include <stdexcept>
 
@@ -79,7 +78,7 @@ double FirLowPassFilter::filter(std::deque<double>& history, double x)
 std::vector<double> FirLowPassFilter::computeCoefficients(double fc, int numTaps)
 {
     const int    M  = numTaps - 1;
-    const double pi = std::numbers::pi;
+    constexpr double pi = 3.14159265358979323846;
 
     std::vector<double> h(static_cast<std::size_t>(numTaps));
 
