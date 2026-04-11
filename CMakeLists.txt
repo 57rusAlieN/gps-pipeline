@@ -6,6 +6,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Ensure UTF-8 source and execution charset on MSVC (needed for degree symbol °)
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
+
 # ---------------------------------------------------------------------------
 # Library: all business logic (parser, filters, output, pipeline)
 # Populated incrementally as source files are added in later stages.
