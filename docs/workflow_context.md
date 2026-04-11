@@ -98,7 +98,7 @@ ctest --preset=x64-debug --output-on-failure
 | **4 — Filters** | ✅ Завершён | Валидация (Satellite/Speed/Jump/Stop) + FilterChain + ПИФ/КИХ |
 | **5 — Output** | ✅ Завершён | ConsoleOutput: пишет в std::ostream, формат по ТЗ, 15 тестов |
 | **6 — Pipeline** | ✅ Завершён | Pipeline DI-оркестратор, E2E все 6 сценариев, 12 тестов |
-| **7 — Main/CLI** | ⬜ Не начат | чтение файла, аргументы |
+| **7 — Main/CLI** | ✅ Завершён | Composition root, SetConsoleOutputCP + _O_BINARY + /utf-8 |
 | **8 — sample.nmea** | ✅ Завершён | создан вместе со Stage 0 |
 | **9 — README** | ⬜ Не начат | — |
 | **10 — Финал** | ⬜ Не начат | ctest, покрытие |
@@ -137,8 +137,6 @@ ctest --preset=x64-debug --output-on-failure
 
 ## Следующий шаг
 
-**Этап 7 — Main / CLI:**
-- `src/main.cpp` — чтение файла построчно, создание Pipeline с реальными зависимостями
-- Принимает путь к NMEA-файлу как `argv[1]`
-- Wiring: NmeaParser + FilterChain(Sat,Speed,Jump,Stop) + ConsoleOutput(std::cout) → Pipeline
-- Обработка ошибок: файл не найден, нет аргументов
+**Этап 9 — README.md + Этап 10 — Финал:**
+- Написать README.md: описание, сборка, запуск, архитектура, тесты
+- Финальный запуск ctest — все 109 тестов зелёны
