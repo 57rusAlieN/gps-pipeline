@@ -30,7 +30,7 @@ ParsedRecord BinaryRecordReader::readNext()
     const std::string timeFmt = formatEpoch(m_buf);
     const uint8_t     navValid = m_buf[16];
 
-    auto result = m_parser.parseRecord(m_buf, IBinaryParser::RECORD_SIZE);
+    auto result = m_parser.parseRecord(m_buf, GnssBinaryParser::RECORD_SIZE);
 
     // Advance to next record
     m_bufferReady = tryFill();
@@ -49,7 +49,7 @@ bool BinaryRecordReader::tryFill()
 {
     return static_cast<bool>(
         m_in.read(reinterpret_cast<char*>(m_buf),
-                  static_cast<std::streamsize>(IBinaryParser::RECORD_SIZE)));
+                  static_cast<std::streamsize>(GnssBinaryParser::RECORD_SIZE)));
 }
 
 std::string BinaryRecordReader::formatTime(const std::string& t)

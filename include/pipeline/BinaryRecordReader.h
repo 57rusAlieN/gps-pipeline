@@ -26,7 +26,7 @@ private:
     GnssBinaryParser m_parser;
 
     // Pre-fetched buffer; valid when m_bufferReady == true
-    uint8_t m_buf[IBinaryParser::RECORD_SIZE]{};
+    uint8_t m_buf[GnssBinaryParser::RECORD_SIZE]{};
     bool    m_bufferReady = false;
 
     // Try to read the next RECORD_SIZE bytes into m_buf.

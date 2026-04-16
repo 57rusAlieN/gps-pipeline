@@ -1,8 +1,10 @@
 #pragma once
 
-#include "parser/IBinaryParser.h"
+#include "GpsPoint.h"
 
+#include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 
 // NavStatus values as defined in docs/BINARY_FORMAT.md
@@ -33,20 +35,19 @@ enum class NavStatus : uint8_t
 //   indices  0..63  → GPS  (PRN = index + 1)
 //   indices 64..95  → GLONASS (slot = index - 63)
 //   Only entries with snr > 0 are included.
-class GnssBinaryParser final : public IBinaryParser
+class GnssBinaryParser
 {
 public:
-    std::optional<GpsPoint> parseRecord(const uint8_t* data,
-                                        std::size_t    size) override;
+    static constexpr std::size_t RECORD_SIZE = 196;
 
-    uint8_t lastNavStatus() const noexcept override { return m_lastNavStatus; }
+    std::optional<GpsPoint> parseRecord(const uint8_t* data,
+                                        std::size_t    size);
+
+    uint8_t lastNavStatus() const noexcept { return m_lastNavStatus; }
 
 private:
     uint8_t m_lastNavStatus = 0;
 
-    // Convert Unix-epoch seconds to "HHMMSS" string (UTC)
     static std::string epochToTime(uint64_t unixSeconds);
-
-    // Build satellites_in_view from overallArraySnr[96] at data+100
-    static void populateSatellites(GpsPoint& pt, const uint8_t* snrBase);
+    static void        populateSatellites(GpsPoint& pt, const uint8_t* snrBase);
 };

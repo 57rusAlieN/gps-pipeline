@@ -2,7 +2,6 @@
 
 #include "pipeline/NmeaRecordReader.h"
 #include "pipeline/BinaryRecordReader.h"
-#include "parser/IBinaryParser.h"  // for RECORD_SIZE constant
 
 #include <algorithm>
 #include <fstream>

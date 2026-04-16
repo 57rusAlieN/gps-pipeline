@@ -80,7 +80,7 @@ static T readLE(const uint8_t* p)
 std::optional<GpsPoint> GnssBinaryParser::parseRecord(const uint8_t* data,
                                                        std::size_t    size)
 {
-    if (size != IBinaryParser::RECORD_SIZE)
+    if (size != GnssBinaryParser::RECORD_SIZE)
         return std::nullopt;
 
     // Deserialise via memcpy to respect alignment rules

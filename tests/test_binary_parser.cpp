@@ -1,15 +1,11 @@
 #include <gtest/gtest.h>
 
 #include "parser/GnssBinaryParser.h"
-#include "pipeline/BinaryPipeline.h"
-#include "filter/IGpsFilter.h"
-#include "output/IOutput.h"
 
 #include <array>
 #include <cstring>
 #include <sstream>
 #include <string>
-#include <vector>
 
 // ===========================================================================
 // RecordBuilder — builds a valid 196-byte binary record at known offsets.
@@ -277,144 +273,4 @@ TEST_F(GnssBinaryParserTest, SatellitesInView_SnrAndFlag)
         EXPECT_GT(sv.snr, 0);  // zero-SNR sats should not appear
     }
     EXPECT_TRUE(foundPrn1);
-}
-
-// ===========================================================================
-// BinaryPipeline integration tests
-// ===========================================================================
-
-// ---------------------------------------------------------------------------
-// Mock helpers
-// ---------------------------------------------------------------------------
-
-class MockFilter : public IGpsFilter
-{
-public:
-    FilterResult process(GpsPoint&) override
-    {
-        calls++;
-        return {FilterStatus::Pass, ""};
-    }
-    int calls = 0;
-};
-
-class MockOutput : public IOutput
-{
-public:
-    void writePoint   (const GpsPoint&)              override { points++; }
-    void writeRejected(const GpsPoint&, const std::string&) override { rejected++; }
-    void writeError   (const std::string& msg)       override { errors.push_back(msg); }
-
-    int points   = 0;
-    int rejected = 0;
-    std::vector<std::string> errors;
-};
-
-class RejectFilter : public IGpsFilter
-{
-public:
-    FilterResult process(GpsPoint&) override
-    {
-        return {FilterStatus::Reject, "test rejection"};
-    }
-};
-
-// ---------------------------------------------------------------------------
-// BinaryPipeline tests
-// ---------------------------------------------------------------------------
-
-class BinaryPipelineTest : public ::testing::Test
-{
-protected:
-    GnssBinaryParser parser;
-    MockFilter       filter;
-    MockOutput       output;
-};
-
-TEST_F(BinaryPipelineTest, ValidRecord_CallsWritePoint)
-{
-    BinaryPipeline pipeline{parser, filter, output};
-    auto blob = RecordBuilder::valid().asString();
-    std::istringstream in(blob);
-    pipeline.processStream(in);
-    EXPECT_EQ(output.points, 1);
-    EXPECT_EQ(output.errors.size(), 0u);
-}
-
-TEST_F(BinaryPipelineTest, InvalidNav_CallsWriteError)
-{
-    BinaryPipeline pipeline{parser, filter, output};
-    auto blob = RecordBuilder::valid().setNavValid(1).asString(); // RCVR_ERR
-    std::istringstream in(blob);
-    pipeline.processStream(in);
-    EXPECT_EQ(output.points, 0);
-    ASSERT_EQ(output.errors.size(), 1u);
-    EXPECT_NE(output.errors[0].find("error"), std::string::npos);
-}
-
-TEST_F(BinaryPipelineTest, FirstStartNav_CallsWriteError)
-{
-    BinaryPipeline pipeline{parser, filter, output};
-    auto blob = RecordBuilder::valid().setNavValid(0xFF).asString();
-    std::istringstream in(blob);
-    pipeline.processStream(in);
-    EXPECT_EQ(output.points, 0);
-    EXPECT_EQ(output.errors.size(), 1u);
-}
-
-TEST_F(BinaryPipelineTest, MultipleRecords_AllProcessed)
-{
-    BinaryPipeline pipeline{parser, filter, output};
-    std::string blob;
-    for (int i = 0; i < 5; ++i)
-        blob += RecordBuilder::valid().asString();
-    std::istringstream in(blob);
-    pipeline.processStream(in);
-    EXPECT_EQ(output.points, 5);
-}
-
-TEST_F(BinaryPipelineTest, PartialFinalRecord_Ignored)
-{
-    BinaryPipeline pipeline{parser, filter, output};
-    // 1 full record + 50 stray bytes
-    std::string blob = RecordBuilder::valid().asString();
-    blob += std::string(50, '\x00');
-    std::istringstream in(blob);
-    pipeline.processStream(in);
-    EXPECT_EQ(output.points, 1);
-}
-
-TEST_F(BinaryPipelineTest, EmptyStream_NoOutput)
-{
-    BinaryPipeline pipeline{parser, filter, output};
-    std::istringstream in("");
-    pipeline.processStream(in);
-    EXPECT_EQ(output.points,   0);
-    EXPECT_EQ(output.rejected, 0);
-    EXPECT_EQ(output.errors.size(), 0u);
-}
-
-TEST_F(BinaryPipelineTest, FilteredRecord_CallsWriteRejected)
-{
-    RejectFilter rejectFilter;
-    BinaryPipeline pipeline{parser, rejectFilter, output};
-    auto blob = RecordBuilder::valid().asString();
-    std::istringstream in(blob);
-    pipeline.processStream(in);
-    EXPECT_EQ(output.points,   0);
-    EXPECT_EQ(output.rejected, 1);
-}
-
-TEST_F(BinaryPipelineTest, ErrorMessage_ContainsTimestamp)
-{
-    // 1706356800 = 2024-01-27 12:00:00 UTC
-    BinaryPipeline pipeline{parser, filter, output};
-    auto blob = RecordBuilder::valid()
-                    .setDatetime(1706356800ULL)
-                    .setNavValid(1)
-                    .asString();
-    std::istringstream in(blob);
-    pipeline.processStream(in);
-    ASSERT_EQ(output.errors.size(), 1u);
-    EXPECT_NE(output.errors[0].find("12:00:00"), std::string::npos);
 }

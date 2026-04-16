@@ -13,8 +13,6 @@
 #  include <io.h>
 #endif
 
-#include "parser/NmeaParser.h"
-#include "parser/GnssBinaryParser.h"
 #include "filter/FilterChain.h"
 #include "filter/SatelliteFilter.h"
 #include "filter/SpeedFilter.h"
@@ -28,20 +26,17 @@
 #include "config/Config.h"
 #include "config/ConfigLoader.h"
 #include "pipeline/Pipeline.h"
-#include "pipeline/BinaryPipeline.h"
+#include "pipeline/MultiFileRecordReader.h"
 
 static void printUsage()
 {
     std::cerr <<
-        "Usage: gps_pipeline <nmea_or_bin_file> [--config <cfg.json>]\n"
-        "                                       [-lpf <pif|fir>] [-cf <0.01..1>]\n"
-        "  <nmea_or_bin_file>  NMEA text file (.nmea/.txt) or binary dump (.bin)\n"
-        "  --config  JSON configuration file (see config/default.json)\n"
-        "            If given, -lpf and -cf flags are ignored.\n"
-        "  -lpf      smoothing filter: pif (moving average) or fir (windowed-sinc)\n"
-        "            default: pif\n"
-        "  -cf       low-pass cutoff, Nyquist-normalised [0.01..1]\n"
-        "            1 = no smoothing (all-pass); default: 0.2\n";
+        "Usage: gps_pipeline <path> [--config <cfg.json>]\n"
+        "                          [-lpf <pif|fir>] [-cf <0.01..1>]\n"
+        "  <path>    file (.nmea/.bin) OR directory to scan recursively\n"
+        "  --config  JSON config file; overrides -lpf/-cf flags\n"
+        "  -lpf      smoothing: pif (moving average) or fir (windowed-sinc)\n"
+        "  -cf       low-pass cutoff [0.01..1], 1=no smoothing; default: 0.2\n";
 }
 
 enum class CliOpt { File, Config, Lpf, Cf, Unknown };
@@ -177,18 +172,11 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    std::ifstream file(filePath, std::ios::in | std::ios::binary);
-    if (!file.is_open())
-    {
-        std::cerr << "Error: cannot open file '" << filePath << "'\n";
-        return EXIT_FAILURE;
-    }
-
     // Detect binary vs NMEA by file extension
     const bool isBinary = (filePath.size() >= 4 &&
                             filePath.compare(filePath.size() - 4, 4, ".bin") == 0);
 
-    // Build config
+    // Build config (CLI args first, then --config overrides all)
     Config cfg;
     if (!configPath.empty())
     {
@@ -206,6 +194,12 @@ int main(int argc, char* argv[])
         cfg.filters.lpf.cutoff  = cutoffNorm;
     }
 
+    // CLI path overrides config input.path; isBinary determines type when "auto"
+    cfg.input.path      = filePath;
+    cfg.input.recursive = false;
+    if (cfg.input.type == "auto")
+        cfg.input.type = isBinary ? "binary" : "nmea";
+
     // Composition root
     FilterChain filters;
     buildFilters(filters, cfg);
@@ -218,27 +212,18 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    if (isBinary)
+    try
     {
-        GnssBinaryParser parser;
-        BinaryPipeline   pipeline{parser, filters, *output};
-        pipeline.processStream(file);
+        auto reader = MultiFileRecordReader::fromDirectory(
+            cfg.input.path, cfg.input.recursive, cfg.input.type);
+
+        Pipeline pipeline{reader, filters, *output};
+        pipeline.run();
     }
-    else
+    catch (const std::exception& e)
     {
-        // NMEA text mode: re-open as text (binary flag might affect line endings)
-        file.close();
-        std::ifstream textFile(filePath);
-        if (!textFile.is_open())
-        {
-            std::cerr << "Error: cannot open file '" << filePath << "'\n";
-            return EXIT_FAILURE;
-        }
-        NmeaParser parser;
-        Pipeline   pipeline{parser, filters, *output};
-        std::string line;
-        while (std::getline(textFile, line))
-            pipeline.processLine(line);
+        std::cerr << "Error: " << e.what() << "\n";
+        return EXIT_FAILURE;
     }
 
     return EXIT_SUCCESS;
