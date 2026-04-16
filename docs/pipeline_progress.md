@@ -1,4 +1,4 @@
-# GPS Pipeline — Анализ ТЗ и план разработки
+﻿# GPS Pipeline — Анализ ТЗ и план разработки
 
 ## Анализ технического задания
 
@@ -215,3 +215,15 @@ gps-pipeline/
 | 10 — Финал         | ✅ Завершён | HEAD |
 
 Обозначения: ⬜ Не начат · 🔄 В работе · ✅ Завершён · ❌ Заблокирован
+
+---
+
+## Рефакторинг: IRecordReader + Directory Scan (завершён)
+
+| Этап | Статус | Коммит |
+|------|--------|--------|
+| InputCfg + ConfigLoader | ✅ | f5f0bf8 |
+| IRecordReader / NmeaRecordReader / BinaryRecordReader | ✅ | a98190f |
+| MultiFileRecordReader (fs::recursive + sort) | ✅ | 4a8df29 |
+| Pipeline(IRecordReader) + удалён BinaryPipeline | ✅ | 164cd88 |
+| 199/199 тестов | ✅ | 164cd88 |

@@ -53,22 +53,20 @@ IRecordReader
 
 | # | Шаг | Тип | Статус | Коммит |
 |---|-----|-----|--------|--------|
-| 1 | `InputCfg` в `Config.h` | code | ⬜ | — |
-| 2 | Тесты `InputCfg` в `test_config.cpp` | RED | ⬜ | — |
-| 3 | `ConfigLoader`: парсинг секции `"input"` | GREEN | ⬜ | — |
-| 4 | `IRecordReader.h` + `ParsedRecord` | code | ⬜ | — |
-| 5 | `NmeaRecordReader.h/.cpp` | code | ⬜ | — |
-| 6 | `BinaryRecordReader.h/.cpp` | code | ⬜ | — |
-| 7 | `test_record_readers.cpp` | RED | ⬜ | — |
-| 8 | Реализация `NmeaRecordReader` + `BinaryRecordReader` | GREEN | ⬜ | — |
-| 9 | `MultiFileRecordReader.h/.cpp` (composite + fs scan) | code | ⬜ | — |
-| 10 | `test_multifile_reader.cpp` | RED | ⬜ | — |
-| 11 | Реализация `MultiFileRecordReader` | GREEN | ⬜ | — |
-| 12 | `Pipeline`: переписать под `IRecordReader`, метод `run()` | refactor | ⬜ | — |
-| 13 | `test_pipeline.cpp`: адаптировать под `NmeaRecordReader` | refactor | ⬜ | — |
-| 14 | Удалить `BinaryPipeline`, `IBinaryParser` | cleanup | ⬜ | — |
-| 15 | `main.cpp`: `InputCfg` → выбор ридера, CLI path → override | code | ⬜ | — |
-| 16 | Финальный прогон тестов + обновление README | validate | ⬜ | — |
+| 1 | `InputCfg` в `Config.h` | code | ✅ | b6a70de |
+| 2 | Тесты `InputCfg` в `test_config.cpp` | RED | ✅ | b6a70de |
+| 3 | `ConfigLoader`: парсинг секции `"input"` | GREEN | ✅ | f5f0bf8 |
+| 4 | `IRecordReader.h` + `ParsedRecord` | code | ✅ | 6200a63 |
+| 5 | `NmeaRecordReader.h/.cpp` | code | ✅ | a98190f |
+| 6 | `BinaryRecordReader.h/.cpp` | code | ✅ | a98190f |
+| 7 | `test_record_readers.cpp` | RED→GREEN | ✅ | a98190f |
+| 8 | `MultiFileRecordReader.h/.cpp` (composite + fs scan) | code | ✅ | 4a8df29 |
+| 9 | `test_multifile_reader.cpp` | RED→GREEN | ✅ | 4a8df29 |
+| 10 | `Pipeline`: переписать под `IRecordReader`, метод `run()` | refactor | ✅ | 164cd88 |
+| 11 | `test_pipeline.cpp`: адаптировать под `NmeaRecordReader` | refactor | ✅ | 164cd88 |
+| 12 | Удалить `BinaryPipeline`, `IBinaryParser` | cleanup | ✅ | 164cd88 |
+| 13 | `main.cpp`: `MultiFileRecordReader` + `InputCfg` | code | ✅ | 164cd88 |
+| 14 | Финальный прогон тестов + обновление README | validate | ✅ | 164cd88 |
 
 ## Инварианты (не меняются)
 
