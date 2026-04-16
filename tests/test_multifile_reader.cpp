@@ -108,16 +108,18 @@ TEST_F(MultiFileTest, Recursive_FindsFilesInSubdirs)
 
 TEST_F(MultiFileTest, FilesOrderedLexicographically)
 {
-    // Create in reverse order to ensure sorting is applied
+    // Create in reverse order to ensure sorting is applied.
+    // 260317/16/56.bin → datetime = 1706356800 = 12:00:00 UTC
+    // 260317/15/01.bin → datetime = 1706353260 = 11:01:00 UTC (earlier)
     writeBin("260317/16/56.bin", makeBinBlob(0, 1706356800ULL));
-    writeBin("260317/15/01.bin", makeBinBlob(0, 1706353260ULL));  // earlier time
+    writeBin("260317/15/01.bin", makeBinBlob(0, 1706353260ULL));
     auto reader = MultiFileRecordReader::fromDirectory(tmpDir, true);
 
     // Should read 15/01.bin first (lexicographic < 16/56.bin)
     ASSERT_TRUE(reader.hasNext());
     auto first = reader.readNext();
     ASSERT_TRUE(first.point.has_value());
-    EXPECT_EQ(first.point->time, "150540");  // 1706353260 UTC
+    EXPECT_EQ(first.point->time, "110100");  // 1706353260 UTC = 11:01:00
 }
 
 TEST_F(MultiFileTest, SingleFilePath_WorksAsDirectory)

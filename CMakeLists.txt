@@ -45,6 +45,7 @@ add_library(gps_pipeline_lib STATIC
     src/pipeline/BinaryPipeline.cpp
     src/pipeline/NmeaRecordReader.cpp
     src/pipeline/BinaryRecordReader.cpp
+    src/pipeline/MultiFileRecordReader.cpp
     src/config/ConfigLoader.cpp
 )
 
