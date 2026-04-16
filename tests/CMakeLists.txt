@@ -22,6 +22,7 @@ add_executable(gps_pipeline_tests
     test_fileoutput.cpp
     test_binary_parser.cpp
     test_record_readers.cpp
+    test_multifile_reader.cpp
 )
 
 target_link_libraries(gps_pipeline_tests
