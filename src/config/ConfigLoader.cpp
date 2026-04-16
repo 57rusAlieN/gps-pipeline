@@ -87,9 +87,19 @@ OutputCfg parseOutput(const json& j, const OutputCfg& def)
     return c;
 }
 
+InputCfg parseInput(const json& j, const InputCfg& def)
+{
+    InputCfg c = def;
+    c.type      = get(j, "type",      def.type);
+    c.path      = get(j, "path",      def.path);
+    c.recursive = get(j, "recursive", def.recursive);
+    return c;
+}
+
 Config fromJson(const json& j)
 {
     Config c;  // all defaults via struct initialisation
+    if (auto it = j.find("input");   it != j.end()) c.input   = parseInput  (*it, Config{}.input);
     if (auto it = j.find("filters"); it != j.end()) c.filters = parseFilters(*it, Config{}.filters);
     if (auto it = j.find("output");  it != j.end()) c.output  = parseOutput (*it, Config{}.output);
     return c;
