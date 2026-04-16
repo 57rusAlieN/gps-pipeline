@@ -31,6 +31,7 @@ FetchContent_MakeAvailable(nlohmann_json)
 add_library(gps_pipeline_lib STATIC
     src/parser/ChecksumValidator.cpp
     src/parser/NmeaParser.cpp
+    src/parser/GnssBinaryParser.cpp
     src/filter/SatelliteFilter.cpp
     src/filter/SpeedFilter.cpp
     src/filter/CoordinateJumpFilter.cpp
@@ -41,6 +42,7 @@ add_library(gps_pipeline_lib STATIC
     src/output/ConsoleOutput.cpp
     src/output/FileOutput.cpp
     src/pipeline/Pipeline.cpp
+    src/pipeline/BinaryPipeline.cpp
     src/config/ConfigLoader.cpp
 )
 

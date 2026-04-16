@@ -20,6 +20,7 @@ add_executable(gps_pipeline_tests
     test_pipeline.cpp
     test_config.cpp
     test_fileoutput.cpp
+    test_binary_parser.cpp
 )
 
 target_link_libraries(gps_pipeline_tests

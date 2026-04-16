@@ -14,6 +14,7 @@
 #endif
 
 #include "parser/NmeaParser.h"
+#include "parser/GnssBinaryParser.h"
 #include "filter/FilterChain.h"
 #include "filter/SatelliteFilter.h"
 #include "filter/SpeedFilter.h"
@@ -27,12 +28,14 @@
 #include "config/Config.h"
 #include "config/ConfigLoader.h"
 #include "pipeline/Pipeline.h"
+#include "pipeline/BinaryPipeline.h"
 
 static void printUsage()
 {
     std::cerr <<
-        "Usage: gps_pipeline <nmea_file> [--config <cfg.json>]\n"
-        "                               [-lpf <pif|fir>] [-cf <0.01..1>]\n"
+        "Usage: gps_pipeline <nmea_or_bin_file> [--config <cfg.json>]\n"
+        "                                       [-lpf <pif|fir>] [-cf <0.01..1>]\n"
+        "  <nmea_or_bin_file>  NMEA text file (.nmea/.txt) or binary dump (.bin)\n"
         "  --config  JSON configuration file (see config/default.json)\n"
         "            If given, -lpf and -cf flags are ignored.\n"
         "  -lpf      smoothing filter: pif (moving average) or fir (windowed-sinc)\n"
@@ -174,12 +177,16 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    std::ifstream file(filePath);
+    std::ifstream file(filePath, std::ios::in | std::ios::binary);
     if (!file.is_open())
     {
         std::cerr << "Error: cannot open file '" << filePath << "'\n";
         return EXIT_FAILURE;
     }
+
+    // Detect binary vs NMEA by file extension
+    const bool isBinary = (filePath.size() >= 4 &&
+                            filePath.compare(filePath.size() - 4, 4, ".bin") == 0);
 
     // Build config
     Config cfg;
@@ -200,7 +207,6 @@ int main(int argc, char* argv[])
     }
 
     // Composition root
-    NmeaParser  parser;
     FilterChain filters;
     buildFilters(filters, cfg);
 
@@ -212,11 +218,28 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    Pipeline pipeline{parser, filters, *output};
-
-    std::string line;
-    while (std::getline(file, line))
-        pipeline.processLine(line);
+    if (isBinary)
+    {
+        GnssBinaryParser parser;
+        BinaryPipeline   pipeline{parser, filters, *output};
+        pipeline.processStream(file);
+    }
+    else
+    {
+        // NMEA text mode: re-open as text (binary flag might affect line endings)
+        file.close();
+        std::ifstream textFile(filePath);
+        if (!textFile.is_open())
+        {
+            std::cerr << "Error: cannot open file '" << filePath << "'\n";
+            return EXIT_FAILURE;
+        }
+        NmeaParser parser;
+        Pipeline   pipeline{parser, filters, *output};
+        std::string line;
+        while (std::getline(textFile, line))
+            pipeline.processLine(line);
+    }
 
     return EXIT_SUCCESS;
 }
