@@ -135,3 +135,84 @@ TEST(ConfigLoaderTest, LoadNonExistentFileThrows)
 {
     EXPECT_THROW(ConfigLoader::loadFile("no_such_file.json"), std::runtime_error);
 }
+
+// ===========================================================================
+// InputCfg — defaults
+// ===========================================================================
+
+TEST(ConfigLoaderTest, InputCfgDefaultType)
+{
+    Config c = ConfigLoader::defaults();
+    EXPECT_EQ(c.input.type, "auto");
+}
+
+TEST(ConfigLoaderTest, InputCfgDefaultPath)
+{
+    Config c = ConfigLoader::defaults();
+    EXPECT_EQ(c.input.path, "");
+}
+
+TEST(ConfigLoaderTest, InputCfgDefaultRecursive)
+{
+    Config c = ConfigLoader::defaults();
+    EXPECT_FALSE(c.input.recursive);
+}
+
+TEST(ConfigLoaderTest, EmptyJsonInputCfgKeepsDefaults)
+{
+    Config c = ConfigLoader::loadString("{}");
+    EXPECT_EQ(c.input.type, "auto");
+    EXPECT_EQ(c.input.path, "");
+    EXPECT_FALSE(c.input.recursive);
+}
+
+// ===========================================================================
+// InputCfg — overrides
+// ===========================================================================
+
+TEST(ConfigLoaderTest, InputCfgTypeNmea)
+{
+    Config c = ConfigLoader::loadString(R"({"input":{"type":"nmea"}})");
+    EXPECT_EQ(c.input.type, "nmea");
+}
+
+TEST(ConfigLoaderTest, InputCfgTypeBinary)
+{
+    Config c = ConfigLoader::loadString(R"({"input":{"type":"binary"}})");
+    EXPECT_EQ(c.input.type, "binary");
+}
+
+TEST(ConfigLoaderTest, InputCfgPath)
+{
+    Config c = ConfigLoader::loadString(R"({"input":{"path":"data/260317"}})");
+    EXPECT_EQ(c.input.path, "data/260317");
+}
+
+TEST(ConfigLoaderTest, InputCfgRecursiveTrue)
+{
+    Config c = ConfigLoader::loadString(R"({"input":{"recursive":true}})");
+    EXPECT_TRUE(c.input.recursive);
+}
+
+TEST(ConfigLoaderTest, InputCfgFullSection)
+{
+    Config c = ConfigLoader::loadString(R"({
+        "input": {
+            "type":      "binary",
+            "path":      "data/260317",
+            "recursive": true
+        }
+    })");
+    EXPECT_EQ(c.input.type,      "binary");
+    EXPECT_EQ(c.input.path,      "data/260317");
+    EXPECT_TRUE(c.input.recursive);
+}
+
+TEST(ConfigLoaderTest, InputCfgPartialOverride)
+{
+    Config c = ConfigLoader::loadString(R"({"input":{"type":"nmea"}})");
+    EXPECT_EQ  (c.input.type, "nmea");
+    EXPECT_EQ  (c.input.path, "");        // default preserved
+    EXPECT_FALSE(c.input.recursive);      // default preserved
+}
+

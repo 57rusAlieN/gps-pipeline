@@ -61,8 +61,29 @@ struct OutputCfg
     RotationCfg rotation;
 };
 
+// ---------------------------------------------------------------------------
+// Input configuration — what to read and how to scan
+// ---------------------------------------------------------------------------
+
+struct InputCfg
+{
+    // "auto"   — detect by file extension (.bin → binary, else nmea)
+    // "nmea"   — force NMEA text parser
+    // "binary" — force GnssBinaryParser
+    std::string type      = "auto";
+
+    // Path to a single file OR a root directory to scan
+    std::string path      = "";
+
+    // Recursively descend into subdirectories when path is a directory.
+    // Files are processed in lexicographic (= chronological for YYMMDD/HH/MM.bin)
+    // order relative to the root.
+    bool        recursive = false;
+};
+
 struct Config
 {
+    InputCfg   input;
     FiltersCfg filters;
     OutputCfg  output;
 };
