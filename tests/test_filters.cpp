@@ -90,6 +90,39 @@ TEST_F(SatelliteFilterTest, CustomMinValue)
     EXPECT_EQ(strict.process(p).status, FilterStatus::Pass);
 }
 
+TEST_F(SatelliteFilterTest, GracePeriod_RejectsAll)
+{
+    SatelliteFilter f(3, 4, 3);  // wait 3 points
+    auto p = makePoint(); p.satellites = 10;
+    EXPECT_EQ(f.process(p).status, FilterStatus::Reject);  // point 1
+    EXPECT_EQ(f.process(p).status, FilterStatus::Reject);  // point 2
+    EXPECT_EQ(f.process(p).status, FilterStatus::Reject);  // point 3
+    EXPECT_EQ(f.process(p).status, FilterStatus::Pass);    // point 4 — after grace
+}
+
+TEST_F(SatelliteFilterTest, StartCount_RequiredAfterGrace)
+{
+    SatelliteFilter f(3, 5, 1);  // wait 1 point, startCount 5
+    auto p = makePoint(); p.satellites = 10;
+    f.process(p);  // grace period
+
+    p.satellites = 4;  // < startCount 5
+    EXPECT_EQ(f.process(p).status, FilterStatus::Reject);
+    p.satellites = 5;  // = startCount
+    EXPECT_EQ(f.process(p).status, FilterStatus::Pass);
+    p.satellites = 3;  // ongoing minCount
+    EXPECT_EQ(f.process(p).status, FilterStatus::Pass);
+}
+
+TEST_F(SatelliteFilterTest, OngoingMinCount_AfterStarted)
+{
+    SatelliteFilter f(3, 4, 0);  // no wait
+    auto p = makePoint(); p.satellites = 4;
+    f.process(p);  // start (4 >= startCount)
+    p.satellites = 2;  // < minCount 3
+    EXPECT_EQ(f.process(p).status, FilterStatus::Reject);
+}
+
 // ===========================================================================
 // SpeedFilter
 // ===========================================================================

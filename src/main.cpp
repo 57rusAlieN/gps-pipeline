@@ -55,7 +55,10 @@ static void buildFilters(FilterChain& filters, const Config& cfg)
     const auto& f = cfg.filters;
 
     if (f.satellite.enabled)
-        filters.add(std::make_unique<SatelliteFilter>(f.satellite.min_satellites));
+        filters.add(std::make_unique<SatelliteFilter>(
+            f.satellite.min_satellites,
+            f.satellite.start_count,
+            f.satellite.wait_seconds));
 
     if (f.speed.enabled)
         filters.add(std::make_unique<SpeedFilter>(f.speed.max_speed_kmh));
