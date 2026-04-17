@@ -1,4 +1,4 @@
-# Real Data Processing — Progress Tracker
+﻿# Real Data Processing — Progress Tracker
 
 ## Точка восстановления
 
@@ -9,18 +9,18 @@
 
 | # | Шаг | Тип | Статус | Коммит |
 |---|-----|-----|--------|--------|
-| 1 | Config.h: добавить QualityFilterCfg, HeightFilterCfg, JumpSuppressFilterCfg, ParkingFilterCfg; расширить SatelliteFilterCfg | code | ⬜ | — |
-| 2 | test_config.cpp: тесты новых cfg-секций | RED | ⬜ | — |
-| 3 | ConfigLoader.cpp: парсинг новых секций | GREEN | ⬜ | — |
-| 4 | QualityFilter: header + impl + tests (TDD) | RED→GREEN | ⬜ | — |
-| 5 | HeightFilter: header + impl + tests (TDD) | RED→GREEN | ⬜ | — |
-| 6 | JumpSuppressFilter: header + impl + tests (TDD) | RED→GREEN | ⬜ | — |
-| 7 | ParkingFilter: header + impl + tests (TDD) | RED→GREEN | ⬜ | — |
-| 8 | SatelliteFilter: расширить wait + startCount (TDD) | RED→GREEN | ⬜ | — |
-| 9 | main.cpp buildFilters(): подключить новые фильтры в правильном порядке | code | ⬜ | — |
-| 10 | Создать 4 JSON-конфига в config/ | config | ⬜ | — |
-| 11 | Создать output/ каталог, обработать 4 датасета | run | ⬜ | — |
-| 12 | Обновить docs, финальный прогон тестов | validate | ⬜ | — |
+| 1 | Config.h: новые cfg-секции | code | ✅ | ba0ad92 | — |
+| 2 | ConfigLoader + тесты | GREEN | ✅ | ba0ad92 | — |
+| 3 | QualityFilter (TDD) | GREEN | ✅ | b635ace | — |
+| 4 | HeightFilter (TDD) | GREEN | ✅ | b635ace | — |
+| 5 | JumpSuppressFilter (TDD) | GREEN | ✅ | b635ace | — |
+| 6 | ParkingFilter (TDD) | GREEN | ✅ | b635ace | — |
+| 7 | SatelliteFilter extended | GREEN | ✅ | b451fcd | — |
+| 8 | buildFilters() wiring | code | ✅ | 1160d3f | — |
+| 9 | 4 JSON-конфига | config | ✅ | 708d9ec | — |
+| 10 | Обработка 4 датасетов | run | ✅ | 9b3472d | — |
+| 11 | Docs + финальные тесты | validate | ✅ | HEAD | — |
+| 12 | — | — | — | — | — |
 
 ## Параметры фильтров (из FILTER_CONFIG.md)
 
