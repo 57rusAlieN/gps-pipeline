@@ -1,0 +1,22 @@
+﻿{
+  "input": {
+    "type": "binary",
+    "path": "data/260320/16",
+    "recursive": true
+  },
+  "filters": {
+    "satellite":     { "enabled": true,  "min_satellites": 3, "start_count": 4, "wait_seconds": 10 },
+    "quality":       { "enabled": true,  "max_hdop": 5.0, "min_snr": 19 },
+    "speed":         { "enabled": true,  "max_speed_kmh": 150 },
+    "height":        { "enabled": true,  "min_m": -50, "max_m": 2000, "max_jump_m": 50 },
+    "jump":          { "enabled": false },
+    "jump_suppress": { "enabled": true,  "max_acc_ms2": 6.0, "max_jump_ms": 20.0, "max_wrong": 5 },
+    "stop":          { "enabled": false },
+    "parking":       { "enabled": true,  "speed_kmh": 4.0 },
+    "lpf":           { "enabled": false }
+  },
+  "output": {
+    "type": "file",
+    "path": "output/260320_16.log"
+  }
+}
