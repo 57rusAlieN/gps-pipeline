@@ -1,12 +1,13 @@
 ﻿# gps-pipeline
 
-Консольное C++ приложение, обрабатывающее GPS-трек в формате NMEA 0183.
-Читает файл построчно, парсит пары предложений `$GPRMC` / `$GPGGA`, прогоняет
-точки через настраиваемую цепочку фильтров и выводит результат в stdout.
+Консольное C++ приложение для постобработки GPS-треков из двоичных дампов
+GalileoSky и NMEA-файлов. Читает один файл **или целый каталог** (рекурсивно),
+парсит записи, прогоняет точки через настраиваемую цепочку фильтров и выводит
+результат в консоль или файл с ротацией.
 
-Разработан по методологии **TDD** (Red -> Green -> Refactor): каждая функциональность
+Разработан по методологии **TDD** (Red → Green → Refactor): каждая функциональность
 появлялась сначала как провальный тест, затем как минимальная реализация.
-Покрыто **137 автотестов** (GoogleTest).
+Покрыто **235 автотестов** (GoogleTest).
 
 ---
 
@@ -16,7 +17,7 @@
 
 | Инструмент | Версия |
 |---|---|
-| CMake | >= 3.14 |
+| CMake | ≥ 3.14 |
 | Компилятор | MSVC 19+ (x64) / GCC 11+ / Clang 14+ |
 | Ninja | любая |
 | Интернет | для скачивания GoogleTest при первой сборке |
@@ -29,163 +30,197 @@ cmake --preset=x64-debug
 
 # 2. Собрать
 cmake --build --preset=x64-debug
-
-# или напрямую через Ninja:
-cd out/build/x64-debug && ninja
 ```
 
 > **Windows / MSVC:** запускать команды из _Developer Command Prompt_ (x64), либо
 > предварительно выполнить `vcvars64.bat`.
 
 Результат:
-- `out/build/x64-debug/gps_pipeline.exe` --- основное приложение
-- `out/build/x64-debug/tests/gps_pipeline_tests.exe` --- набор тестов
+- `out/build/x64-debug/gps_pipeline.exe` — основное приложение
+- `out/build/x64-debug/tests/gps_pipeline_tests.exe` — набор тестов
 
 ---
 
 ## Запуск
 
-### Демо на тестовых данных
+```
+gps_pipeline [<path>] [--config <cfg.json>] [-lpf <pif|fir>] [-cf <0.01..1>]
+```
+
+| Параметр | Описание |
+|---|---|
+| `<path>` | Файл (`.nmea`, `.bin`) **или каталог** для рекурсивного сканирования |
+| `--config <path>` | JSON-конфигурация (все параметры, включая пути) |
+| `-lpf pif\|fir` | Сглаживание: moving average / КИХ windowed-sinc |
+| `-cf 0.01..1` | Частота среза (нормир. к Найквисту); `1` = без сглаживания |
+
+`<path>` и `--config` можно совмещать: CLI-путь переопределяет `input.path`
+из конфига. Если передан только `--config` — путь берётся из `input.path`.
+
+### Примеры
 
 ```bash
+# NMEA-файл через CLI
 gps_pipeline data/sample.nmea
-```
 
-Ожидаемый вывод:
+# Двоичный дамп GalileoSky (автоопределение по расширению .bin)
+gps_pipeline data/260320/16/02.bin
 
-```
-[12:00:00] Coordinates: 55.75206 N, 37.65946 E
-           Speed: 46.3 km/h, Course: 45.0
-           Altitude: 150.0 m, Satellites: 10, HDOP: 0.8
-[12:00:01] Coordinates: 55.75206 N, 37.65946 E
-           Speed: 2.2 km/h (stopped), Course: 45.0
-           Altitude: 150.0 m, Satellites: 10, HDOP: 0.8
-[12:00:02] Point rejected: coordinate jump detected (1893.0 m > 500.0 m)
-[12:00:03] Point rejected: insufficient satellites (3 < 4)
-[12:00:04] No valid GPS fix
-[12:00:05] Parse error: invalid checksum
+# Весь каталог рекурсивно (config содержит input.recursive = true)
+gps_pipeline --config config/260317_16.json
+
+# Каталог + конфиг: CLI-путь переопределяет config.input.path
+gps_pipeline data/260306/15 --config config/260306_15.json
+
+# КИХ-сглаживание через CLI
+gps_pipeline track.nmea -lpf fir -cf 0.1
 ```
 
 ### Автотесты
 
 ```bash
-# Через CTest (рекомендуется)
+# Через CTest
 ctest --preset=x64-debug --output-on-failure
 
 # Или напрямую
 out/build/x64-debug/tests/gps_pipeline_tests.exe
 ```
 
-Ожидаемый результат: **137/137 passed**.
+Ожидаемый результат: **235/235 passed**.
 
 ---
 
 ## Архитектура
 
-Приложение построено на принципах SOLID: каждый слой взаимодействует с соседним
-только через интерфейс. Зависимости передаются в `Pipeline` через конструктор (DI).
-
 ```
-NMEA-file (line by line)
-         |
-         v
- +-------+-------+     +----------------+
- |    Pipeline   |<----|  ConfigLoader  |<-- --config / CLI
- | (orchestrator)|     | config/        |
- +-------+-------+     +----------------+
-         |          processLine():
-         |          1. skip empty lines / comments
-         |          2. validate NMEA checksum  -> writeError
-         |          3. parser.parse()           -> optional<GpsPoint>
-         |          4. filter.process()         -> Pass / Reject
-         |          5. output.write*()
-         |
-   +-----+-------------------------------+
-   |                                     |
-   v                                     v
-INmeaParser                         IGpsFilter (FilterChain)
-  |                                   +-- SatelliteFilter
-  +-- NmeaParser                      +-- SpeedFilter
-       RMC + GGA (stateful),          +-- CoordinateJumpFilter (Haversine)
-       GPGSV -> sat. in view,         +-- StopFilter
-       DDMM->decimal, kn->km/h        +-- LPF [optional]:
-                                           MovingAverageFilter (PIF)
-                                           FirLowPassFilter    (FIR)
-                                                 |
-                                                 v
-                                              IOutput
-                                                +-- ConsoleOutput  (stdout)
-                                                +-- FileOutput     (file + rotation)
+<path> (file / directory)
+         │
+         ▼
+ MultiFileRecordReader          ConfigLoader ◄── --config / CLI
+   ├─ NmeaRecordReader          (config/*.json)
+   └─ BinaryRecordReader
+         │  ParsedRecord { optional<GpsPoint>, error }
+         ▼
+      Pipeline::run()
+         │
+         ├── error?  ──► IOutput::writeError()
+         │
+         └── point  ──► IGpsFilter (FilterChain)
+                              ├─ SatelliteFilter (wait + start + min)
+                              ├─ QualityFilter   (HDOP + SNR)
+                              ├─ SpeedFilter
+                              ├─ HeightFilter    (range + jump)
+                              ├─ CoordinateJumpFilter  (Haversine)
+                              ├─ JumpSuppressFilter    (acc + delta-v)
+                              ├─ StopFilter / ParkingFilter
+                              └─ LPF [optional]: PIF / FIR
+                                    │
+                                    ▼
+                                 IOutput
+                                   ├─ ConsoleOutput  (stdout)
+                                   └─ FileOutput     (файл + ротация)
 ```
 
-### Слои и пакеты
+### Форматы входных данных
 
-| Пакет | Заголовки | Исходники | Описание |
-|---|---|---|---|
-| **types** | `GpsPoint.h` | --- | Агрегат данных точки + `SatelliteInfo` |
-| **parser** | `INmeaParser.h`, `NmeaParser.h`, `ChecksumValidator.h` | `NmeaParser.cpp`, `ChecksumValidator.cpp` | Парсинг NMEA (RMC, GGA, GSV), валидация XOR-checksum |
-| **filter** | `IGpsFilter.h`, `FilterChain.h`, `*Filter.h` | `*Filter.cpp` | Chain of Responsibility, сглаживающие фильтры |
-| **config** | `Config.h`, `ConfigLoader.h` | `ConfigLoader.cpp` | JSON-конфигурация (nlohmann/json), defaults |
-| **output** | `IOutput.h`, `ConsoleOutput.h`, `FileOutput.h` | `ConsoleOutput.cpp`, `FileOutput.cpp` | Форматированный вывод в `std::ostream`, ротация файлов |
-| **pipeline** | `Pipeline.h` | `Pipeline.cpp` | Оркестратор, composition root в `main.cpp` |
-
-### Тестовые модули
-
-| Файл | Тестов | Что покрывает |
+| Расширение | Тип | Парсер |
 |---|---|---|
-| `test_types.cpp` | 9 | GpsPoint, SatelliteInfo, интерфейсы, FilterResult |
-| `test_checksum.cpp` | 13 | XOR-вычисление, validate, граничные случаи |
-| `test_parser.cpp` | 24 | RMC+GGA stateful, GPGSV спутники, coord/speed, ошибки |
-| `test_filters.cpp` | 39 | Все фильтры, FilterChain, ПИФ/КИХ поведение |
-| `test_output.cpp` | 15 | Формат строк, stopped-маркировка, S/W координаты |
-| `test_pipeline.cpp` | 12 | Unit + E2E по всем 6 сценариям `sample.nmea` |
-| `test_config.cpp` | 14 | JSON defaults, парсинг фильтров и output, ошибки |
-| `test_fileoutput.cpp` | 10 | Запись в файл, ротация, ограничение числа файлов |
-| **Итого** | **137** | |
+| `.nmea`, `.txt`, прочее | NMEA 0183 text | `NmeaRecordReader` + `NmeaParser` |
+| `.bin` | GalileoSky Binary Dump 196 байт | `BinaryRecordReader` + `GnssBinaryParser` |
 
----
+При `"type": "auto"` (по умолчанию) тип определяется по расширению файла.
+Явное указание: `"type": "nmea"` или `"type": "binary"`.
 
-## Конфигурация
-
-### Параметры командной строки
-
-Параметры задаются двумя способами: **CLI-флагами** (для разовых запусков) или
-**JSON-конфиг файлом** (`--config`, воспроизводимо). При наличии `--config`
-флаги `-lpf` и `-cf` игнорируются.
-
-```
-gps_pipeline <nmea_file> [--config <cfg.json>] [-lpf <pif|fir>] [-cf <0.01..1>]
-```
-
-| Параметр | Значение | По умолчанию |
-|---|---|---|
-| `<nmea_file>` | Путь к NMEA-файлу | _обязателен_ |
-| `--config <path>` | JSON-конфигурация (все параметры) | _не задан_ |
-| `-lpf pif` | Сглаживание: прямоугольный (moving average) | `pif` |
-| `-lpf fir` | Сглаживание: КИХ windowed-sinc, окно Хэмминга | --- |
-| `-cf 0.01..1` | Частота среза, нормированная к Найквисту | `0.2` |
-| `-cf 1` | Отключить сглаживание (all-pass) | --- |
-
----
-
-### JSON-конфигурация (`--config`)
-
-JSON-файл содержит секции `filters` и `output`. Все ключи опциональны —
-пропущенные сохраняют значение по умолчанию.
+### Обработка каталогов (`MultiFileRecordReader`)
 
 ```bash
-gps_pipeline track.nmea --config config/default.json
+# В конфиге:
+"input": { "type": "binary", "path": "data/260317/16", "recursive": true }
 ```
 
-#### Полная схема
+- Рекурсивно обходит каталог (`recursive: true`) или только корень (`false`).
+- Файлы сортируются **лексикографически** — для структуры `YYMMDD/HH/MM.bin`
+  это одновременно хронологический порядок.
+- Файл-или-каталог — логика одна и та же: `fromDirectory()` принимает оба случая.
+
+---
+
+## Цепочка фильтров
+
+Фильтры применяются в порядке объявления в `FilterChain`. Точка, отвергнутая
+любым фильтром, помечается как `Rejected` и не передаётся в Output.
+
+### Все фильтры
+
+| Фильтр | Класс | Параметры конфига | Действие |
+|---|---|---|---|
+| **SatelliteFilter** | `SatelliteFilter` | `min_satellites`, `start_count`, `wait_seconds` | Отклоняет точки в grace-период после старта, требует `start_count` для первого lock, затем `min_satellites` |
+| **QualityFilter** | `QualityFilter` | `max_hdop`, `min_snr` | Отклоняет если HDOP ≥ max или <3 спутников с SNR ≥ min_snr |
+| **SpeedFilter** | `SpeedFilter` | `max_speed_kmh` | Отклоняет скорость > порога |
+| **HeightFilter** | `HeightFilter` | `min_m`, `max_m`, `max_jump_m` | Отклоняет высоту вне диапазона или прыжок высоты |
+| **CoordinateJumpFilter** | `CoordinateJumpFilter` | `max_distance_m` | Отклоняет прыжок координат > порога (формула Haversine) |
+| **JumpSuppressFilter** | `JumpSuppressFilter` | `max_acc_ms2`, `max_jump_ms`, `max_wrong` | Отклоняет при превышении ускорения или резком delta-v; после `max_wrong` подряд — принудительный сброс |
+| **StopFilter** | `StopFilter` | `threshold_kmh` | Устанавливает флаг `stopped = true`, точку не отклоняет |
+| **ParkingFilter** | `ParkingFilter` | `speed_kmh` | Заморáживает координаты пока `speed < speed_kmh`, устанавливает `stopped = true` |
+| **LpfFilter** | `MovingAverageFilter` / `FirLowPassFilter` | `type`, `cutoff` | Сглаживание координат; `pif` (moving average) или `fir` (windowed-sinc) |
+
+---
+
+## Конфигурация (JSON)
+
+```bash
+gps_pipeline --config config/260317_16.json
+```
+
+### Полная схема
 
 ```json
 {
+  "input": {
+    "type":      "auto",
+    "path":      "data/260317/16",
+    "recursive": true
+  },
   "filters": {
-    "satellite": { "enabled": true,  "min_satellites": 4     },
-    "speed":     { "enabled": true,  "max_speed_kmh":  200.0 },
-    "jump":      { "enabled": true,  "max_distance_m": 500.0 },
-    "stop":      { "enabled": true,  "threshold_kmh":  3.0   },
+    "satellite": {
+      "enabled":        true,
+      "min_satellites": 3,
+      "start_count":    4,
+      "wait_seconds":   10
+    },
+    "quality": {
+      "enabled":  true,
+      "max_hdop": 5.0,
+      "min_snr":  19
+    },
+    "speed": {
+      "enabled":       true,
+      "max_speed_kmh": 150.0
+    },
+    "height": {
+      "enabled":    true,
+      "min_m":      -50,
+      "max_m":      2000,
+      "max_jump_m": 50
+    },
+    "jump": {
+      "enabled":        false,
+      "max_distance_m": 500.0
+    },
+    "jump_suppress": {
+      "enabled":     true,
+      "max_acc_ms2": 6.0,
+      "max_jump_ms": 20.0,
+      "max_wrong":   5
+    },
+    "stop": {
+      "enabled":       false,
+      "threshold_kmh": 3.0
+    },
+    "parking": {
+      "enabled":   true,
+      "speed_kmh": 4.0
+    },
     "lpf": {
       "enabled": false,
       "type":    "pif",
@@ -193,8 +228,8 @@ gps_pipeline track.nmea --config config/default.json
     }
   },
   "output": {
-    "type":     "console",
-    "path":     "gps_output.log",
+    "type": "file",
+    "path": "output/260317_16.log",
     "rotation": {
       "max_size_kb": 1024,
       "max_files":   5
@@ -203,173 +238,156 @@ gps_pipeline track.nmea --config config/default.json
 }
 ```
 
-#### Значения по умолчанию
+### Значения по умолчанию
 
-| JSON-ключ | Тип | Умолчание | Описание |
+#### `input`
+
+| Ключ | Тип | Умолчание | Описание |
 |---|---|---|---|
-| `filters.satellite.enabled` | bool | `true` | Включить фильтр по числу спутников |
-| `filters.satellite.min_satellites` | int | `4` | Минимум спутников для валидной точки |
-| `filters.speed.enabled` | bool | `true` | Включить фильтр по скорости |
-| `filters.speed.max_speed_kmh` | double | `200.0` | Максимальная допустимая скорость (км/ч) |
-| `filters.jump.enabled` | bool | `true` | Включить фильтр прыжков координат |
-| `filters.jump.max_distance_m` | double | `500.0` | Максимальный шаг между точками (м) |
-| `filters.stop.enabled` | bool | `true` | Включить детектор стоянки |
-| `filters.stop.threshold_kmh` | double | `3.0` | Порог остановки (км/ч) |
-| `filters.lpf.enabled` | bool | `false` | Включить сглаживающий фильтр |
-| `filters.lpf.type` | string | `"pif"` | `"pif"` — moving average, `"fir"` — windowed-sinc |
-| `filters.lpf.cutoff` | double | `0.2` | Частота среза \[0.01..1\], Найквист-нормированная |
-| `output.type` | string | `"console"` | `"console"` или `"file"` |
-| `output.path` | string | `"gps_output.log"` | Путь к файлу (только для `type=file`) |
-| `output.rotation.max_size_kb` | uint | `1024` | Макс. размер файла в КБ (0 = без ограничения) |
-| `output.rotation.max_files` | int | `5` | Кол-во архивных файлов (0 = хранить все) |
+| `input.type` | string | `"auto"` | `"auto"` / `"nmea"` / `"binary"` |
+| `input.path` | string | `""` | Файл или каталог |
+| `input.recursive` | bool | `false` | Рекурсивный обход каталога |
+
+#### `filters`
+
+| Ключ | Тип | Умолчание | Описание |
+|---|---|---|---|
+| `satellite.enabled` | bool | `true` | |
+| `satellite.min_satellites` | int | `4` | Текущий минимум спутников |
+| `satellite.start_count` | int | `4` | Кол-во спутников для первого lock |
+| `satellite.wait_seconds` | int | `0` | Grace-период (сек ≈ точки при 1 Гц) |
+| `quality.enabled` | bool | `false` | |
+| `quality.max_hdop` | double | `5.0` | Порог HDOP (отклонение ≥ значения) |
+| `quality.min_snr` | int | `19` | Мин. SNR спутника (дБ-Гц) |
+| `speed.enabled` | bool | `true` | |
+| `speed.max_speed_kmh` | double | `200.0` | |
+| `height.enabled` | bool | `false` | |
+| `height.min_m` | double | `-50.0` | |
+| `height.max_m` | double | `2000.0` | |
+| `height.max_jump_m` | double | `50.0` | Макс. прыжок высоты |
+| `jump.enabled` | bool | `true` | CoordinateJumpFilter |
+| `jump.max_distance_m` | double | `500.0` | |
+| `jump_suppress.enabled` | bool | `false` | |
+| `jump_suppress.max_acc_ms2` | double | `6.0` | Макс. ускорение (м/с²) |
+| `jump_suppress.max_jump_ms` | double | `20.0` | Макс. delta-v (м/с) |
+| `jump_suppress.max_wrong` | int | `5` | Принудительный сброс после N отказов |
+| `stop.enabled` | bool | `true` | Только флаг, не замораживает |
+| `stop.threshold_kmh` | double | `3.0` | |
+| `parking.enabled` | bool | `false` | |
+| `parking.speed_kmh` | double | `4.0` | Замораживает координаты |
+| `lpf.enabled` | bool | `false` | |
+| `lpf.type` | string | `"pif"` | `"pif"` — moving average, `"fir"` — windowed-sinc |
+| `lpf.cutoff` | double | `0.2` | Нормир. к Найквисту \[0.01..1\] |
+
+#### `output`
+
+| Ключ | Тип | Умолчание | Описание |
+|---|---|---|---|
+| `output.type` | string | `"console"` | `"console"` / `"file"` |
+| `output.path` | string | `"gps_output.log"` | |
+| `output.rotation.max_size_kb` | uint | `1024` | 0 = без ротации |
+| `output.rotation.max_files` | int | `5` | 0 = хранить все |
 
 ---
 
 ### Вывод в файл с ротацией
 
-При `"output.type": "file"` данные пишутся в указанный файл. Когда файл
-достигает `max_size_kb` КБ, он переименовывается по схеме logrotate:
-
 ```
-gps_output.log      <- текущий файл
-gps_output.log.1    <- предыдущий
-gps_output.log.2    <- более ранний
+gps_output.log      ← текущий
+gps_output.log.1    ← предыдущий
 ...
-gps_output.log.N    <- старейший (удаляется при следующей ротации)
-```
-
-`max_files = 0` — архивные файлы не удаляются.
-`max_size_kb = 0` — ротация отключена (один файл неограниченного размера).
-
-Пример (`config/file_output.json`):
-
-```json
-{
-  "filters": {
-    "lpf": { "enabled": true, "type": "fir", "cutoff": 0.15 }
-  },
-  "output": {
-    "type": "file",
-    "path": "gps_output.log",
-    "rotation": { "max_size_kb": 512, "max_files": 3 }
-  }
-}
-```
-
-```bash
-gps_pipeline track.nmea --config config/file_output.json
+gps_output.log.N    ← удаляется при следующей ротации
 ```
 
 ---
 
-### Готовые конфиг-файлы
+### Готовые конфиги
 
 | Файл | Описание |
 |---|---|
-| `config/default.json` | Все фильтры включены, без сглаживания, вывод в консоль |
-| `config/file_output.json` | КИХ-сглаживание (fc=0.15), вывод в файл 512 КБ × 3 шт. |
+| `config/default.json` | Все legacy-фильтры включены, без сглаживания, консоль |
+| `config/file_output.json` | КИХ fc=0.15, файл 512 КБ × 3 |
+| `config/260306_15.json` | Пресет FILTER_CONFIG.md → `data/260306/15/` |
+| `config/260317_16.json` | Пресет FILTER_CONFIG.md → `data/260317/16/` |
+| `config/260318_15.json` | Пресет FILTER_CONFIG.md → `data/260318/15/` |
+| `config/260320_16.json` | Пресет FILTER_CONFIG.md → `data/260320/16/` |
 
 ---
 
-### Пороги фильтров (CLI — значения по умолчанию)
+## Формат GalileoSky Binary Dump
 
-| Фильтр | Параметр | Значение |
+Двоичные файлы содержат 196-байтовые записи (little-endian, 1 Гц).
+Формат подробно описан в `docs/BINARY_FORMAT.md`.
+
+Ключевые поля:
+
+| Смещение | Тип | Поле |
 |---|---|---|
-| `SatelliteFilter` | `min_satellites` | 4 |
-| `SpeedFilter` | `max_speed_kmh` | 200.0 km/h |
-| `CoordinateJumpFilter` | `max_distance_m` | 500.0 m |
-| `StopFilter` | `threshold_kmh` | 3.0 km/h |
-
-### Примеры
-
-```bash
-# Готовый конфиг (консоль)
-gps_pipeline track.nmea --config config/default.json
-
-# Файловый вывод с КИХ-сглаживанием
-gps_pipeline track.nmea --config config/file_output.json
-
-# CLI: без сглаживания
-gps_pipeline track.nmea -cf 1
-
-# CLI: ПИФ, умеренное сглаживание (window = 4)
-gps_pipeline track.nmea -lpf pif -cf 0.2
-
-# CLI: КИХ, сильное сглаживание (21 отвод)
-gps_pipeline track.nmea -lpf fir -cf 0.1
-```
-
-### Расчёт размера окна ПИФ
-
-```
-N = max(3, round(0.886 / fc))
-```
-
-Формула соответствует -3 dB точке прямоугольного фильтра (fc нормирована к Найквисту).
-
-### Добавление нового фильтра
-
-1. Создать класс, наследующий `IGpsFilter`
-2. Реализовать `FilterResult process(GpsPoint& point)`
-3. Добавить в `config/Config.h` поле конфига и логику в `buildFilters()` в `main.cpp`
+| 0 | uint64 | Timestamp (ms since boot) |
+| 8 | uint64 | Datetime (Unix epoch) |
+| 16 | uint8 | navValid (0 = fix) |
+| 17 | int32 | Latitude × 10⁻⁶ ° |
+| 21 | int32 | Longitude × 10⁻⁶ ° |
+| 25 | int16 | Height (m) |
+| 27 | uint16 | Speed × 0.1 km/h |
+| 31 | uint8 | HDOP × 0.1 |
+| 33 | uint8 | Satellite count |
+| 100 | uint8[96] | SNR array (GPS+GLONASS) |
 
 ---
 
-## Формат NMEA
+## Обработанные датасеты
 
-Обрабатываются предложения `$GPRMC`, `$GPGGA` и `$GPGSV`. Точка формируется
-из совпадающей по времени пары RMC+GGA; GSV-данные прикрепляются к следующей
-точке в поле `satellites_in_view`. Строки с `#` и пустые строки игнорируются.
+Пресет взят из `docs/FILTER_CONFIG.md` (устройство URBE_14874):
+`SatWait=10s, StartSat=4, MinSat=3, HDOP<5, Speed<150, Height -50..2000/jump50,
+JumpSuppress(acc=6,dv=20,N=5), Parking<4 km/h`.
 
-```
-$GPRMC,120000,A,5545.1234,N,03739.5678,E,025.0,045.0,270124,,,A*70
-$GPGGA,120000,5545.1234,N,03739.5678,E,1,10,0.8,150.0,M,14.0,M,,*4E
-```
+| Дата | Каталог | Конфиг | Выход | Размер |
+|---|---|---|---|---|
+| 2026-03-06 | `data/260306/15/` (7 файлов) | `config/260306_15.json` | `output/260306_15.log` | ~2.5 MB |
+| 2026-03-17 | `data/260317/16/` (6 файлов) | `config/260317_16.json` | `output/260317_16.log` | ~1.6 MB |
+| 2026-03-18 | `data/260318/15/` (6 файлов) | `config/260318_15.json` | `output/260318_15.log` | ~3.0 MB |
+| 2026-03-20 | `data/260320/16/` (1 файл) | `config/260320_16.json` | `output/260320_16.log` | ~0.5 MB |
 
-| Поле NMEA | Преобразование |
-|---|---|
-| `DDMM.MMMM N/S` | Десятичные градусы; S -> отрицательные |
-| `DDDMM.MMMM E/W` | Десятичные градусы; W -> отрицательные |
-| Скорость в узлах | km/h (x 1.852) |
-| Статус `V` в RMC | "No valid GPS fix" |
-| Неверный XOR-checksum | "Parse error: invalid checksum" |
-| `$GPGSV` PRN/elev/az/SNR | `GpsPoint::satellites_in_view` (`SatelliteInfo`) |
 ---
+
+## Архитектурные слои
+
+| Пакет | Заголовки | Описание |
+|---|---|---|
+| **types** | `GpsPoint.h` | Агрегат данных точки + `SatelliteInfo` |
+| **parser** | `INmeaParser.h`, `NmeaParser.h`, `GnssBinaryParser.h`, `ChecksumValidator.h` | NMEA (RMC/GGA/GSV) + Binary 196-byte |
+| **pipeline** | `IRecordReader.h`, `NmeaRecordReader.h`, `BinaryRecordReader.h`, `MultiFileRecordReader.h`, `Pipeline.h` | Источники данных + оркестратор |
+| **filter** | `IGpsFilter.h`, `FilterChain.h`, `*Filter.h` | Chain of Responsibility |
+| **config** | `Config.h`, `ConfigLoader.h` | JSON-конфигурация (nlohmann/json) |
+| **output** | `IOutput.h`, `ConsoleOutput.h`, `FileOutput.h` | Форматированный вывод, ротация |
 
 ---
 
 ## Покрытие тестами
 
-Оценка основана на 137 unit-тестах (GTest), покрывающих все методы библиотеки.
+| Файл | Тестов | Что покрывает |
+|---|---|---|
+| `test_types.cpp` | 9 | GpsPoint, SatelliteInfo, FilterResult |
+| `test_checksum.cpp` | 13 | XOR, validate, граничные случаи |
+| `test_parser.cpp` | 24 | RMC+GGA, GPGSV, coord/speed, ошибки |
+| `test_binary_parser.cpp` | 21 | GnssBinaryParser, navValid, SNR, спутники |
+| `test_filters.cpp` | 42 | Все фильтры вкл. SatelliteFilter wait/start |
+| `test_new_filters.cpp` | 23 | QualityFilter, HeightFilter, JumpSuppressFilter, ParkingFilter |
+| `test_output.cpp` | 15 | Формат строк, stopped, S/W координаты |
+| `test_pipeline.cpp` | 11 | Unit + E2E через NmeaRecordReader |
+| `test_config.cpp` | 33 | JSON defaults + все новые секции |
+| `test_fileoutput.cpp` | 10 | Запись в файл, ротация |
+| `test_record_readers.cpp` | 17 | NmeaRecordReader, BinaryRecordReader |
+| `test_multifile_reader.cpp` | 13 | MultiFileRecordReader, recursive scan, sort |
+| **Итого** | **235** | |
 
-`main.cpp` (сомпозиционный root) намеренно не покрыт unit-тестами;
-его поведение проверяется E2E-тестом `test_pipeline.cpp::FullSampleNmeaSequence`.
+---
 
-### Оценка по модулям
+## Добавление нового фильтра
 
-| Модуль | LOC | Тесты | Оценка |
-|---|---|---|---|
-| ChecksumValidator | 15 | 13 | 100% |
-| NmeaParser (RMC+GGA+GSV) | 100 | 24 | ~95% |
-| SatelliteFilter | 12 | 3 | 100% |
-| SpeedFilter | 12 | 3 | 100% |
-| CoordinateJumpFilter | 45 | 6 | ~100% |
-| StopFilter | 12 | 3 | 100% |
-| FilterChain | 20 | 5 | 100% |
-| MovingAverageFilter | 35 | 6 | ~95% |
-| FirLowPassFilter | 55 | 8 | ~90% |
-| ConsoleOutput | 50 | 15 | ~100% |
-| FileOutput | 70 | 10 | ~90% |
-| ConfigLoader | 80 | 14 | ~95% |
-| Pipeline | 55 | 12 | ~95% |
-| **Итого (библиотека)** | **~561** | **137** | **>93%** |
-
-### coverage-отчёт (Linux / GCC + lcov)
-
-bash
-cmake --preset=linux-coverage
-cmake --build --preset=linux-coverage --target coverage
-xdg-open out/build/linux-coverage/coverage_html/index.html
-
-Пресет linux-coverage добавляет флаги --coverage -O0, запускает lcov и genhtml,
-отчёт появляется в out/build/linux-coverage/coverage_html/.
+1. Создать класс, наследующий `IGpsFilter`, реализовать `FilterResult process(GpsPoint&)`
+2. Добавить `XxxFilterCfg` в `include/config/Config.h` и `FiltersCfg`
+3. Добавить `parseXxx()` в `src/config/ConfigLoader.cpp` и вызов в `parseFilters()`
+4. Подключить в `buildFilters()` в `src/main.cpp`
+5. Написать тесты в `tests/test_new_filters.cpp`
