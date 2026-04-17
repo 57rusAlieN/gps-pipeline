@@ -23,6 +23,17 @@ SatelliteFilterCfg parseSatellite(const json& j, const SatelliteFilterCfg& def)
     SatelliteFilterCfg c = def;
     c.enabled        = get(j, "enabled",        def.enabled);
     c.min_satellites = get(j, "min_satellites", def.min_satellites);
+    c.start_count   = get(j, "start_count",    def.start_count);
+    c.wait_seconds  = get(j, "wait_seconds",   def.wait_seconds);
+    return c;
+}
+
+QualityFilterCfg parseQuality(const json& j, const QualityFilterCfg& def)
+{
+    QualityFilterCfg c = def;
+    c.enabled  = get(j, "enabled",  def.enabled);
+    c.max_hdop = get(j, "max_hdop", def.max_hdop);
+    c.min_snr  = get(j, "min_snr",  def.min_snr);
     return c;
 }
 
@@ -42,11 +53,39 @@ JumpFilterCfg parseJump(const json& j, const JumpFilterCfg& def)
     return c;
 }
 
+HeightFilterCfg parseHeight(const json& j, const HeightFilterCfg& def)
+{
+    HeightFilterCfg c = def;
+    c.enabled    = get(j, "enabled",    def.enabled);
+    c.min_m      = get(j, "min_m",      def.min_m);
+    c.max_m      = get(j, "max_m",      def.max_m);
+    c.max_jump_m = get(j, "max_jump_m", def.max_jump_m);
+    return c;
+}
+
+JumpSuppressFilterCfg parseJumpSuppress(const json& j, const JumpSuppressFilterCfg& def)
+{
+    JumpSuppressFilterCfg c = def;
+    c.enabled     = get(j, "enabled",     def.enabled);
+    c.max_acc_ms2 = get(j, "max_acc_ms2", def.max_acc_ms2);
+    c.max_jump_ms = get(j, "max_jump_ms", def.max_jump_ms);
+    c.max_wrong   = get(j, "max_wrong",   def.max_wrong);
+    return c;
+}
+
 StopFilterCfg parseStop(const json& j, const StopFilterCfg& def)
 {
     StopFilterCfg c = def;
     c.enabled       = get(j, "enabled",       def.enabled);
     c.threshold_kmh = get(j, "threshold_kmh", def.threshold_kmh);
+    return c;
+}
+
+ParkingFilterCfg parseParking(const json& j, const ParkingFilterCfg& def)
+{
+    ParkingFilterCfg c = def;
+    c.enabled   = get(j, "enabled",   def.enabled);
+    c.speed_kmh = get(j, "speed_kmh", def.speed_kmh);
     return c;
 }
 
@@ -62,11 +101,15 @@ LpfFilterCfg parseLpf(const json& j, const LpfFilterCfg& def)
 FiltersCfg parseFilters(const json& j, const FiltersCfg& def)
 {
     FiltersCfg c = def;
-    if (auto it = j.find("satellite"); it != j.end()) c.satellite = parseSatellite(*it, def.satellite);
-    if (auto it = j.find("speed");     it != j.end()) c.speed     = parseSpeed    (*it, def.speed);
-    if (auto it = j.find("jump");      it != j.end()) c.jump      = parseJump     (*it, def.jump);
-    if (auto it = j.find("stop");      it != j.end()) c.stop      = parseStop     (*it, def.stop);
-    if (auto it = j.find("lpf");       it != j.end()) c.lpf       = parseLpf      (*it, def.lpf);
+    if (auto it = j.find("satellite");     it != j.end()) c.satellite     = parseSatellite    (*it, def.satellite);
+    if (auto it = j.find("quality");       it != j.end()) c.quality       = parseQuality      (*it, def.quality);
+    if (auto it = j.find("speed");         it != j.end()) c.speed         = parseSpeed        (*it, def.speed);
+    if (auto it = j.find("height");        it != j.end()) c.height        = parseHeight       (*it, def.height);
+    if (auto it = j.find("jump");          it != j.end()) c.jump          = parseJump         (*it, def.jump);
+    if (auto it = j.find("jump_suppress"); it != j.end()) c.jump_suppress = parseJumpSuppress (*it, def.jump_suppress);
+    if (auto it = j.find("stop");          it != j.end()) c.stop          = parseStop         (*it, def.stop);
+    if (auto it = j.find("parking");       it != j.end()) c.parking       = parseParking      (*it, def.parking);
+    if (auto it = j.find("lpf");           it != j.end()) c.lpf           = parseLpf          (*it, def.lpf);
     return c;
 }
 

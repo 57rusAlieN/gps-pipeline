@@ -216,3 +216,98 @@ TEST(ConfigLoaderTest, InputCfgPartialOverride)
     EXPECT_FALSE(c.input.recursive);      // default preserved
 }
 
+// ===========================================================================
+// New filter config sections
+// ===========================================================================
+
+TEST(ConfigLoaderTest, SatelliteFilterExtendedDefaults)
+{
+    Config c = ConfigLoader::loadString("{}");
+    EXPECT_EQ(c.filters.satellite.start_count,  4);
+    EXPECT_EQ(c.filters.satellite.wait_seconds,  0);
+}
+
+TEST(ConfigLoaderTest, SatelliteFilterExtendedOverride)
+{
+    Config c = ConfigLoader::loadString(R"({
+        "filters":{"satellite":{"start_count":5,"wait_seconds":10,"min_satellites":3}}
+    })");
+    EXPECT_EQ(c.filters.satellite.start_count,  5);
+    EXPECT_EQ(c.filters.satellite.wait_seconds, 10);
+    EXPECT_EQ(c.filters.satellite.min_satellites, 3);
+}
+
+TEST(ConfigLoaderTest, QualityFilterDefaults)
+{
+    Config c = ConfigLoader::loadString("{}");
+    EXPECT_FALSE(c.filters.quality.enabled);
+    EXPECT_DOUBLE_EQ(c.filters.quality.max_hdop, 5.0);
+    EXPECT_EQ(c.filters.quality.min_snr, 19);
+}
+
+TEST(ConfigLoaderTest, QualityFilterOverride)
+{
+    Config c = ConfigLoader::loadString(R"({
+        "filters":{"quality":{"enabled":true,"max_hdop":3.0,"min_snr":22}}
+    })");
+    EXPECT_TRUE(c.filters.quality.enabled);
+    EXPECT_DOUBLE_EQ(c.filters.quality.max_hdop, 3.0);
+    EXPECT_EQ(c.filters.quality.min_snr, 22);
+}
+
+TEST(ConfigLoaderTest, HeightFilterDefaults)
+{
+    Config c = ConfigLoader::loadString("{}");
+    EXPECT_FALSE(c.filters.height.enabled);
+    EXPECT_DOUBLE_EQ(c.filters.height.min_m, -50.0);
+    EXPECT_DOUBLE_EQ(c.filters.height.max_m, 2000.0);
+    EXPECT_DOUBLE_EQ(c.filters.height.max_jump_m, 50.0);
+}
+
+TEST(ConfigLoaderTest, HeightFilterOverride)
+{
+    Config c = ConfigLoader::loadString(R"({
+        "filters":{"height":{"enabled":true,"min_m":-100,"max_m":5000,"max_jump_m":80}}
+    })");
+    EXPECT_TRUE(c.filters.height.enabled);
+    EXPECT_DOUBLE_EQ(c.filters.height.min_m, -100.0);
+    EXPECT_DOUBLE_EQ(c.filters.height.max_m, 5000.0);
+    EXPECT_DOUBLE_EQ(c.filters.height.max_jump_m, 80.0);
+}
+
+TEST(ConfigLoaderTest, JumpSuppressFilterDefaults)
+{
+    Config c = ConfigLoader::loadString("{}");
+    EXPECT_FALSE(c.filters.jump_suppress.enabled);
+    EXPECT_DOUBLE_EQ(c.filters.jump_suppress.max_acc_ms2, 6.0);
+    EXPECT_DOUBLE_EQ(c.filters.jump_suppress.max_jump_ms, 20.0);
+    EXPECT_EQ(c.filters.jump_suppress.max_wrong, 5);
+}
+
+TEST(ConfigLoaderTest, JumpSuppressFilterOverride)
+{
+    Config c = ConfigLoader::loadString(R"({
+        "filters":{"jump_suppress":{"enabled":true,"max_acc_ms2":8,"max_jump_ms":25,"max_wrong":3}}
+    })");
+    EXPECT_TRUE(c.filters.jump_suppress.enabled);
+    EXPECT_DOUBLE_EQ(c.filters.jump_suppress.max_acc_ms2, 8.0);
+    EXPECT_DOUBLE_EQ(c.filters.jump_suppress.max_jump_ms, 25.0);
+    EXPECT_EQ(c.filters.jump_suppress.max_wrong, 3);
+}
+
+TEST(ConfigLoaderTest, ParkingFilterDefaults)
+{
+    Config c = ConfigLoader::loadString("{}");
+    EXPECT_FALSE(c.filters.parking.enabled);
+    EXPECT_DOUBLE_EQ(c.filters.parking.speed_kmh, 4.0);
+}
+
+TEST(ConfigLoaderTest, ParkingFilterOverride)
+{
+    Config c = ConfigLoader::loadString(R"({
+        "filters":{"parking":{"enabled":true,"speed_kmh":5.0}}
+    })");
+    EXPECT_TRUE(c.filters.parking.enabled);
+    EXPECT_DOUBLE_EQ(c.filters.parking.speed_kmh, 5.0);
+}
+
