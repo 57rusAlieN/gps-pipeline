@@ -195,17 +195,13 @@ int main(int argc, char* argv[])
         }
     }
 
-    if (filePath.empty())
+    if (filePath.empty() && configPath.empty())
     {
         printUsage();
         return EXIT_FAILURE;
     }
 
-    // Detect binary vs NMEA by file extension
-    const bool isBinary = (filePath.size() >= 4 &&
-                            filePath.compare(filePath.size() - 4, 4, ".bin") == 0);
-
-    // Build config (CLI args first, then --config overrides all)
+    // Build config (--config overrides all CLI filter flags)
     Config cfg;
     if (!configPath.empty())
     {
@@ -223,11 +219,16 @@ int main(int argc, char* argv[])
         cfg.filters.lpf.cutoff  = cutoffNorm;
     }
 
-    // CLI path overrides config input.path; isBinary determines type when "auto"
-    cfg.input.path      = filePath;
-    cfg.input.recursive = false;
-    if (cfg.input.type == "auto")
-        cfg.input.type = isBinary ? "binary" : "nmea";
+    // CLI path overrides config input.path (if provided)
+    if (!filePath.empty())
+    {
+        cfg.input.path      = filePath;
+        cfg.input.recursive = false;
+        const bool isBinary = (filePath.size() >= 4 &&
+                                filePath.compare(filePath.size() - 4, 4, ".bin") == 0);
+        if (cfg.input.type == "auto")
+            cfg.input.type = isBinary ? "binary" : "nmea";
+    }
 
     // Composition root
     FilterChain filters;
