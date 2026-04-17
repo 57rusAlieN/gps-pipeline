@@ -39,6 +39,10 @@ add_library(gps_pipeline_lib STATIC
     src/filter/FilterChain.cpp
     src/filter/MovingAverageFilter.cpp
     src/filter/FirLowPassFilter.cpp
+    src/filter/QualityFilter.cpp
+    src/filter/HeightFilter.cpp
+    src/filter/JumpSuppressFilter.cpp
+    src/filter/ParkingFilter.cpp
     src/output/ConsoleOutput.cpp
     src/output/FileOutput.cpp
     src/pipeline/Pipeline.cpp
