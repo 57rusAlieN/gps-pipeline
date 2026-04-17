@@ -15,9 +15,13 @@
 
 #include "filter/FilterChain.h"
 #include "filter/SatelliteFilter.h"
+#include "filter/QualityFilter.h"
 #include "filter/SpeedFilter.h"
+#include "filter/HeightFilter.h"
 #include "filter/CoordinateJumpFilter.h"
+#include "filter/JumpSuppressFilter.h"
 #include "filter/StopFilter.h"
+#include "filter/ParkingFilter.h"
 #include "filter/MovingAverageFilter.h"
 #include "filter/FirLowPassFilter.h"
 #include "output/ConsoleOutput.h"
@@ -54,20 +58,42 @@ static void buildFilters(FilterChain& filters, const Config& cfg)
 {
     const auto& f = cfg.filters;
 
+    // Order matches FILTER_CONFIG.md pipeline order:
+    // 1. SatellitesFilter → 2. QualityFilter → 3. SpeedFilter →
+    // 4. HeightFilter → 5. JumpSuppressFilter → 6. ParkingFilter
+    // Legacy filters (jump, stop, lpf) appended after if enabled.
+
     if (f.satellite.enabled)
         filters.add(std::make_unique<SatelliteFilter>(
             f.satellite.min_satellites,
             f.satellite.start_count,
             f.satellite.wait_seconds));
 
+    if (f.quality.enabled)
+        filters.add(std::make_unique<QualityFilter>(
+            f.quality.max_hdop, f.quality.min_snr));
+
     if (f.speed.enabled)
         filters.add(std::make_unique<SpeedFilter>(f.speed.max_speed_kmh));
+
+    if (f.height.enabled)
+        filters.add(std::make_unique<HeightFilter>(
+            f.height.min_m, f.height.max_m, f.height.max_jump_m));
 
     if (f.jump.enabled)
         filters.add(std::make_unique<CoordinateJumpFilter>(f.jump.max_distance_m));
 
+    if (f.jump_suppress.enabled)
+        filters.add(std::make_unique<JumpSuppressFilter>(
+            f.jump_suppress.max_acc_ms2,
+            f.jump_suppress.max_jump_ms,
+            f.jump_suppress.max_wrong));
+
     if (f.stop.enabled)
         filters.add(std::make_unique<StopFilter>(f.stop.threshold_kmh));
+
+    if (f.parking.enabled)
+        filters.add(std::make_unique<ParkingFilter>(f.parking.speed_kmh));
 
     if (f.lpf.enabled && f.lpf.cutoff < 1.0)
     {
